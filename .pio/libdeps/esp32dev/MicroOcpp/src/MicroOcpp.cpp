@@ -143,10 +143,10 @@ void mocpp_initialize(const char *backendUrl, const char *chargeBoxId, const cha
 
     if (isTLS) {
         // server address, port, path and TLS certificate
-        webSocket->beginSslWithCA(host.c_str(), port, path.c_str(), CA_cert, "ocpp1.6");
+        webSocket->beginSslWithCA(host.c_str(), port, path.c_str(), CA_cert, "ocpp2.0.1");
     } else {
         // server address, port, path
-        webSocket->begin(host.c_str(), port, path.c_str(), "ocpp1.6");
+        webSocket->begin(host.c_str(), port, path.c_str(), "ocpp2.0.1");
     }
 
     // try ever 5000 again if connection has failed
@@ -175,11 +175,11 @@ ChargerCredentials::ChargerCredentials(const char *cpModel, const char *cpVendor
     if (cbSNr)
         creds["chargeBoxSerialNumber"] = cbSNr;
     if (cpModel)
-        creds["chargePointModel"] = cpModel;
+        creds["model"] = cpModel;
     if (cpSNr)
         creds["chargePointSerialNumber"] = cpSNr;
     if (cpVendor)
-        creds["chargePointVendor"] = cpVendor;
+        creds["vendorName"] = cpVendor;
     if (fWv)
         creds["firmwareVersion"] = fWv;
     if (iccid)
