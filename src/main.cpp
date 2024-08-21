@@ -14,10 +14,10 @@ ESP8266WiFiMulti WiFiMulti;
 
 #include <MicroOcpp.h>
 
-#define STASSID "TCEJ-HOME1"
+#define STASSID "TCEJ-Home"
 #define STAPSK "22435503"
 
-#define OCPP_BACKEND_URL "ws://192.168.1.42:9000" //"ws://echo.websocket.events"
+#define OCPP_BACKEND_URL "ws://192.168.0.166:9000" //"ws://echo.websocket.events"
 #define OCPP_CHARGE_BOX_ID "CP_1"
 
 //
