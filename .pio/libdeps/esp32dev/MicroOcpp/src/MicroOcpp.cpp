@@ -165,7 +165,11 @@ void mocpp_initialize(const char *backendUrl, const char *chargeBoxId, const cha
 
     delete connection;
     connection = new EspWiFi::WSClient(webSocket);
+# if MO_ENABLE_V201
+    mocpp_initialize(*connection, ChargerCredentials::v201(chargePointModel, chargePointVendor), makeDefaultFilesystemAdapter(fsOpt), autoRecover);
+# else
     mocpp_initialize(*connection, ChargerCredentials(chargePointModel, chargePointVendor), makeDefaultFilesystemAdapter(fsOpt), autoRecover);
+#endif
 }
 #endif
 
@@ -175,11 +179,11 @@ ChargerCredentials::ChargerCredentials(const char *cpModel, const char *cpVendor
     if (cbSNr)
         creds["chargeBoxSerialNumber"] = cbSNr;
     if (cpModel)
-        creds["model"] = cpModel;
+        creds["chargePointModel"] = cpModel;
     if (cpSNr)
         creds["chargePointSerialNumber"] = cpSNr;
     if (cpVendor)
-        creds["vendorName"] = cpVendor;
+        creds["chargePointVendor"] = cpVendor;
     if (fWv)
         creds["firmwareVersion"] = fWv;
     if (iccid)

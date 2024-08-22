@@ -105,12 +105,16 @@ private:
  * an example.
  */
 void mocpp_initialize(
-    MicroOcpp::Connection &connection,                                                               // WebSocket adapter for MicroOcpp
+    MicroOcpp::Connection &connection, // WebSocket adapter for MicroOcpp
+#if MO_ENABLE_V201
+    const char *bootNotificationCredentials = ChargerCredentials::v201("Demo Charger", "My Company Ltd."), // e.g. '{"chargePointModel":"Demo Charger","chargePointVendor":"My Company Ltd."}' (refer to OCPP 1.6 Specification - Edition 2 p. 60)
+#else
     const char *bootNotificationCredentials = ChargerCredentials("Demo Charger", "My Company Ltd."), // e.g. '{"chargePointModel":"Demo Charger","chargePointVendor":"My Company Ltd."}' (refer to OCPP 1.6 Specification - Edition 2 p. 60)
+#endif
     std::shared_ptr<MicroOcpp::FilesystemAdapter> filesystem =
         MicroOcpp::makeDefaultFilesystemAdapter(MicroOcpp::FilesystemOpt::Use_Mount_FormatOnFail), // If this library should format the flash if necessary. Find further options in ConfigurationOptions.h
     bool autoRecover = false,                                                                      // automatically sanitize the local data store when the lib detects recurring crashes. Not recommended during development
-    MicroOcpp::ProtocolVersion version = MicroOcpp::ProtocolVersion(2,0,1));
+    MicroOcpp::ProtocolVersion version = MicroOcpp::ProtocolVersion(2, 0, 1));
 
 /*
  * Stop the OCPP library and release allocated resources.
