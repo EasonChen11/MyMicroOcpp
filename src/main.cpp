@@ -13,6 +13,7 @@ ESP8266WiFiMulti WiFiMulti;
 #endif
 
 #include <MicroOcpp.h>
+#include "myevent.h"
 
 #define STASSID "TCEJ-Home"
 #define STAPSK "22435503"
@@ -25,6 +26,33 @@ ESP8266WiFiMulti WiFiMulti;
 //
 // #define OCPP_BACKEND_URL   "ws://192.168.178.100:8180/steve/websocket/CentralSystemService"
 // #define OCPP_CHARGE_BOX_ID "esp-charger"
+// #define LED_PIN 2
+static int ledPin;
+void LED_Blink(void *pvParameters)
+{
+    digitalWrite(ledPin, HIGH);      // Turn on the LED
+    vTaskDelay(pdMS_TO_TICKS(5000)); // Delay for 1000 ms
+    digitalWrite(ledPin, LOW);       // Turn off the LED
+    vTaskDelete(NULL);               // Delete the task
+}
+
+void HeartBeatEvent(esp32m::Event *event)
+{ // handle custom event
+    if (event->is("heartbeat"))
+    { // check if event is heartbeat
+        auto customEvent = (esp32m::HeartBeatEvent *)event;
+        ledPin = customEvent->getLedPin(); // 从事件对象获取 LED 引脚号
+        xTaskCreatePinnedToCore(
+            LED_Blink,   // Function to implement the task
+            "LED_Blink", // Name of the task
+            10000,       // Stack size in words
+            NULL,        // Task input parameter
+            1,           // Priority of the task
+            NULL,        // Task handle
+            1            // Core where the task should run
+        );
+    }
+}
 
 void setup()
 {
@@ -51,16 +79,33 @@ void setup()
         Serial.print('.');
         delay(1000);
     }
+    // // create a new thread for led
+    // xTaskCreatePinnedToCore(
+    //     LED_Blink,   /* Function to implement the task */
+    //     "LED_Blink", /* Name of the task */
+    //     10000,       /* Stack size in words */
+    //     NULL,        /* Task input parameter */
+    //     1,           /* Priority of the task */
+    //     NULL,        /* Task handle. */
+    //     1);          /* Core where the task should run */
 #else
 #error only ESP32 or ESP8266 supported at the moment
 #endif
 
     Serial.println(F(" connected!"));
 
+    // subscribe to custom event
+    auto &manager = esp32m::EventManager::instance();
+    manager.subscribe(HeartBeatEvent);
     /*
      * Initialize the OCPP library
      */
+
     mocpp_initialize(OCPP_BACKEND_URL, OCPP_CHARGE_BOX_ID, "My Charging Station", "My company name");
+    // call class MOcppMongooseClient
+    // auto fsAdapter = MicroOcpp::makeDefaultFilesystemAdapter(MicroOcpp::FilesystemOpt::Use_Mount_FormatOnFail);
+    // struct mg_mgr *mg_mgr = new struct mg_mgr;
+    // MicroOcpp::MOcppMongooseClient *client = new MicroOcpp::MOcppMongooseClient(mg_mgr, OCPP_BACKEND_URL, OCPP_CHARGE_BOX_ID, "1234", nullptr, fsAdapter);
     /*
      * Integrate OCPP functionality. You can leave out the following part if your EVSE doesn't need it.
      */
