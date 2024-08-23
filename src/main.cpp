@@ -79,15 +79,6 @@ void setup()
         Serial.print('.');
         delay(1000);
     }
-    // // create a new thread for led
-    // xTaskCreatePinnedToCore(
-    //     LED_Blink,   /* Function to implement the task */
-    //     "LED_Blink", /* Name of the task */
-    //     10000,       /* Stack size in words */
-    //     NULL,        /* Task input parameter */
-    //     1,           /* Priority of the task */
-    //     NULL,        /* Task handle. */
-    //     1);          /* Core where the task should run */
 #else
 #error only ESP32 or ESP8266 supported at the moment
 #endif
@@ -103,9 +94,7 @@ void setup()
 
     mocpp_initialize(OCPP_BACKEND_URL, OCPP_CHARGE_BOX_ID, "My Charging Station", "My company name");
     // call class MOcppMongooseClient
-    // auto fsAdapter = MicroOcpp::makeDefaultFilesystemAdapter(MicroOcpp::FilesystemOpt::Use_Mount_FormatOnFail);
-    // struct mg_mgr *mg_mgr = new struct mg_mgr;
-    // MicroOcpp::MOcppMongooseClient *client = new MicroOcpp::MOcppMongooseClient(mg_mgr, OCPP_BACKEND_URL, OCPP_CHARGE_BOX_ID, "1234", nullptr, fsAdapter);
+
     /*
      * Integrate OCPP functionality. You can leave out the following part if your EVSE doesn't need it.
      */
@@ -140,10 +129,12 @@ void loop()
      */
     if (ocppPermitsCharge())
     {
+        Serial.println(F("[main] Energize EV plug"));
         // OCPP set up and transaction running. Energize the EV plug here
     }
     else
     {
+        // Serial.println(F("[main] De-energize EV plug"));
         // No transaction running at the moment. De-energize EV plug
     }
 
@@ -153,7 +144,6 @@ void loop()
     if (/* RFID chip detected? */ false)
     {
         String idTag = "0123456789ABCD"; // e.g. idTag = RFID.readIdTag();
-
         if (!getTransaction())
         {
             // no transaction running or preparing. Begin a new transaction
@@ -170,6 +160,9 @@ void loop()
             {
                 Serial.println(F("[main] Transaction initiated. OCPP lib will send a StartTransaction when"
                                  "ConnectorPlugged Input becomes true and if the Authorization succeeds"));
+                Serial.printf("[main] transaction %d", getTransaction());
+                Serial.printf("[main] trasaction active %d", getTransaction()->isActive());
+                Serial.printf("[main] trasaction Authorized %d", getTransaction()->isAuthorized());
             }
             else
             {
