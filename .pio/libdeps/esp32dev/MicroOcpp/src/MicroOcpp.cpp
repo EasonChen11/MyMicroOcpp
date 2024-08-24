@@ -1261,7 +1261,11 @@ void authorize(const char *idTag, OnReceiveConfListener onConf, OnAbortListener 
         return;
     }
     auto authorize = makeRequest(
+#if MO_ENABLE_V201
         new MicroOcpp::Ocpp201::Authorize(context->getModel(), idTag));
+#else
+        new Authorize(context->getModel(), idTag));
+#endif
     if (onConf)
         authorize->setOnReceiveConfListener(onConf);
     if (onAbort)
