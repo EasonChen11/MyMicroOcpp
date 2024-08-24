@@ -17,7 +17,7 @@ ESP8266WiFiMulti WiFiMulti;
 #define STASSID "TCEJ-Home"
 #define STAPSK "22435503"
 
-#define OCPP_BACKEND_URL "ws://192.168.0.166:9000" //"ws://echo.websocket.events"
+#define OCPP_BACKEND_URL "ws://192.168.0.166:8180/steve/websocket/CentralSystemService/" //"ws://192.168.0.166:9000" //"ws://echo.websocket.events"
 #define OCPP_CHARGE_BOX_ID "CP_1"
 
 #define RFID_PIN 25
@@ -53,27 +53,6 @@ void HeartBeatEvent(esp32m::Event *event)
             NULL,        // Task handle
             1            // Core where the task should run
         );
-    }
-}
-enum transactionState
-{
-    noRFID = 0,
-    start, // 開始充電
-    stop   // 停止充電
-};
-static enum transactionState Transacted = noRFID;
-bool TransactionState()
-{
-    switch (Transacted)
-    {
-    case noRFID:
-        return true;
-    case start:
-        return false;
-    case stop:
-        return false;
-    default:
-        return 0;
     }
 }
 
@@ -127,7 +106,34 @@ void setup()
     setEnergyMeterInput([]()
                         {
         //take the energy register of the main electricity meter and return the value in watt-hours
-        return 0.f; });
+        static ulong lastSampled = millis();
+static float energyMeter = 0.f;
+if (getTransactionIdTag() > 0)
+    energyMeter += ((float) (millis() - lastSampled)) * 0.003f; //increase by 0.003Wh per ms (~ 10.8kWh per h)
+lastSampled = millis();
+return energyMeter; });
+
+    addMeterValueInput([]
+                       { return 120; },
+                       "Voltage", "V");
+    addMeterValueInput([]
+                       { return 10; },
+                       "Current.import",
+                       "A");
+    addMeterValueInput([]
+                       { return 100; },
+                       "Energy.Active.Import.Register", "Wh");
+    addMeterValueInput([]
+                       { return 50; },
+                       "Frequency", "Hz");
+    addMeterValueInput([]
+                       { return 10; },
+                       "Power.Active.Import",
+                       "kW");
+    addMeterValueInput([]
+                       { return 20; },
+                       "Temperature",
+                       "Celsius");
 
     setSmartChargingCurrentOutput([](float limit)
                                   {
@@ -136,7 +142,11 @@ void setup()
     setConnectorPluggedInput([]()
                              // return true if an EV is plugged to this EVSE
                              { return digitalRead(27) == HIGH; });
-
+    setEnergyMeterInput([]()
+                        { return true; });
+    setEvReadyInput([]()
+                    // return true if the EV is ready to charge
+                    { return true; });
     //... see MicroOcpp.h for more settings
 }
 
@@ -169,9 +179,9 @@ void loop()
      */
     if (/* RFID chip detected? */ digitalRead(RFID_PIN) == HIGH) // RFID card touched
     {
-        String idTag = "0123456789ABCD"; // e.g. idTag = RFID.readIdTag();
+        String idTag = "ABC"; // e.g. idTag = RFID.readIdTag();
 
-        if (!getTransaction() && TransactionState())
+        if (!getTransaction())
         {
             // no transaction running or preparing. Begin a new transaction
             Serial.printf("[main] Begin Transaction with idTag %s\n", idTag.c_str());
@@ -181,9 +191,9 @@ void loop()
              * and listen to the ConnectorPlugged Input. When the Authorization succeeds and an EV
              * is plugged, the OCPP lib will send the StartTransaction
              */
-            // auto ret = beginTransaction(idTag.c_str());
-            auto ret = beginTransaction_authorized(idTag.c_str());
-            Transacted = start;
+            auto ret = beginTransaction(idTag.c_str());
+            // auto ret = beginTransaction_authorized(idTag.c_str());
+            // Transacted = start;
             if (ret)
             {
                 Serial.println(F("[main] Transaction initiated. OCPP lib will send a StartTransaction when"
@@ -200,26 +210,18 @@ void loop()
         else
         {
             // Transaction already initiated. Check if to stop current Tx by RFID card
-            if (idTag.equals(getTransactionIdTag()) && TransactionState())
+            if (idTag.equals(getTransactionIdTag()))
             {
                 // card matches -> user can stop Tx
                 Serial.println(F("[main] End transaction by RFID card"));
 
                 endTransaction(idTag.c_str());
                 endTransaction(getTransaction()->getIdTag());
-                Transacted = stop;
             }
             else
             {
                 Serial.println(F("[main] Cannot end transaction by RFID card (different card?)"));
             }
-        }
-    }
-    else
-    {
-        if (!TransactionState())
-        {
-            Transacted = noRFID;
         }
     }
 
