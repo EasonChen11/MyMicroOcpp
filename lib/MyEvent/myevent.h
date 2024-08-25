@@ -1,7 +1,7 @@
 #include <events.hpp>
 #include <Arduino.h>
 #include <string.h>
-
+#include "LEDOption.h"
 namespace esp32m
 {
 
@@ -9,17 +9,17 @@ namespace esp32m
     {
     public:
         // 使用默认的 LED 引脚
-        HeartBeatEvent() : Event("heartbeat"), _ledPin(DEFAULT_LED_PIN)
+        HeartBeatEvent() : Event("heartbeat"), heartLed(HERTBEAT) {}
+        void Blink()
         {
-            pinMode(_ledPin, OUTPUT); // 设置 LED_PIN 为输出
+            heartLed.LED_Blink();
         }
-
         // Getter 方法获取 LED 引脚
         int getLedPin() const { return _ledPin; }
 
     private:
-        static const int DEFAULT_LED_PIN = 2; // 默认的 LED 引脚号
-        int _ledPin;                          // 实际使用的 LED 引脚号
+        LEDOption heartLed; // 创建 LED 对象
+        int _ledPin;        // 实际使用的 LED 引脚号
     };
 
 } // namespace esp32m

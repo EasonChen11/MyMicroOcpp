@@ -14,45 +14,38 @@ ESP8266WiFiMulti WiFiMulti;
 
 #include <MicroOcpp.h>
 #include "myevent.h"
+#include "LEDOption.h"
+#include "SWITCH.h"
 #define STASSID "TCEJ-Home"
 #define STAPSK "22435503"
 
 #define OCPP_BACKEND_URL "ws://192.168.0.166:8180/steve/websocket/CentralSystemService/" //"ws://192.168.0.166:9000" //"ws://echo.websocket.events"
 #define OCPP_CHARGE_BOX_ID "CP_1"
 
-#define RFID_PIN 25
-#define ConnectorPlugged 27
-#define PermitsCharge 4
 //
 //  Settings which worked for my SteVe instance:
 //
 // #define OCPP_BACKEND_URL   "ws://192.168.178.100:8180/steve/websocket/CentralSystemService"
 // #define OCPP_CHARGE_BOX_ID "esp-charger"
-// #define LED_PIN 2
-static int ledPin;
-void LED_Blink(void *pvParameters)
+
+// setups the LED pin
+LEDOption permitsCharge(PermitsCharge);
+SWITCH RFIDTouch(RFID_PIN), connectorPlugged(ConnectorPlugged), evseReady(EvseReady), evReady(EvReady);
+enum RFIDState
 {
-    digitalWrite(ledPin, HIGH);      // Turn on the LED
-    vTaskDelay(pdMS_TO_TICKS(5000)); // Delay for 1000 ms
-    digitalWrite(ledPin, LOW);       // Turn off the LED
-    vTaskDelete(NULL);               // Delete the task
-}
+    RFID_IDLE,
+    RFID_FIRST_TOUCHED,
+    RFID_FIRST_TOUCHED_IDLE,
+    RFID_SECOND_TOUCHED
+};
+RFIDState RFIDstate = RFID_IDLE;
 
 void HeartBeatEvent(esp32m::Event *event)
 { // handle custom event
     if (event->is("heartbeat"))
     { // check if event is heartbeat
         auto customEvent = (esp32m::HeartBeatEvent *)event;
-        ledPin = customEvent->getLedPin(); // 从事件对象获取 LED 引脚号
-        xTaskCreatePinnedToCore(
-            LED_Blink,   // Function to implement the task
-            "LED_Blink", // Name of the task
-            10000,       // Stack size in words
-            NULL,        // Task input parameter
-            1,           // Priority of the task
-            NULL,        // Task handle
-            1            // Core where the task should run
-        );
+        customEvent->Blink();
     }
 }
 
@@ -86,9 +79,8 @@ void setup()
 #endif
 
     Serial.println(F(" connected!"));
-    pinMode(RFID_PIN, INPUT);         // RFID card reader
-    pinMode(ConnectorPlugged, INPUT); // ConnectorPlugged
-    pinMode(PermitsCharge, OUTPUT);   // have PermitsCharge
+    /* init LED */
+    // pinMode(ConnectorPlugged, INPUT);pinMode(EvseReady, INPUT);pinMode(EvReady, INPUT);
 
     // subscribe to custom event
     auto &manager = esp32m::EventManager::instance();
@@ -99,7 +91,6 @@ void setup()
 
     mocpp_initialize(OCPP_BACKEND_URL, OCPP_CHARGE_BOX_ID, "My Charging Station", "My company name");
     // call class MOcppMongooseClient
-
     /*
      * Integrate OCPP functionality. You can leave out the following part if your EVSE doesn't need it.
      */
@@ -141,12 +132,13 @@ return energyMeter; });
         Serial.printf("[main] Smart Charging allows maximum charge rate: %.0f\n", limit); });
     setConnectorPluggedInput([]()
                              // return true if an EV is plugged to this EVSE
-                             { return digitalRead(27) == HIGH; });
-    setEnergyMeterInput([]()
-                        { return true; });
+                             { return connectorPlugged.Is_Ready(); });
     setEvReadyInput([]()
                     // return true if the EV is ready to charge
-                    { return true; });
+                    { return evReady.Is_Ready(); });
+    setEvseReadyInput([]()
+                      // return true if the EVSE is ready to charge
+                      { return evseReady.Is_Ready(); });
     //... see MicroOcpp.h for more settings
 }
 
@@ -157,19 +149,18 @@ void loop()
      * Do all OCPP stuff (process WebSocket input, send recorded meter values to Central System, etc.)
      */
     mocpp_loop();
-
     /*
      * Energize EV plug if OCPP transaction is up and running
      */
     if (ocppPermitsCharge())
     {
         Serial.println(F("[main] Energize EV plug"));
-        digitalWrite(PermitsCharge, HIGH);
+        permitsCharge.LED_On();
         // OCPP set up and transaction running. Energize the EV plug here
     }
     else
     {
-        digitalWrite(PermitsCharge, LOW);
+        permitsCharge.LED_Off();
         // Serial.println(F("[main] De-energize EV plug"));
         // No transaction running at the moment. De-energize EV plug
     }
@@ -177,12 +168,13 @@ void loop()
     /*
      * Use NFC reader to start and stop transactions
      */
-    if (/* RFID chip detected? */ digitalRead(RFID_PIN) == HIGH) // RFID card touched
+    if (/* RFID chip detected? */ RFIDTouch.Is_Ready()) // RFID card touched
     {
         String idTag = "ABC"; // e.g. idTag = RFID.readIdTag();
 
-        if (!getTransaction())
+        if (!getTransaction() && RFIDstate == RFID_IDLE)
         {
+
             // no transaction running or preparing. Begin a new transaction
             Serial.printf("[main] Begin Transaction with idTag %s\n", idTag.c_str());
 
@@ -192,8 +184,10 @@ void loop()
              * is plugged, the OCPP lib will send the StartTransaction
              */
             auto ret = beginTransaction(idTag.c_str());
+            // if transaction is authorized, then the transaction is initiated
+            if (getTransaction() && getTransaction()->isAuthorized())
+                RFIDstate = RFID_FIRST_TOUCHED;
             // auto ret = beginTransaction_authorized(idTag.c_str());
-            // Transacted = start;
             if (ret)
             {
                 Serial.println(F("[main] Transaction initiated. OCPP lib will send a StartTransaction when"
@@ -209,19 +203,32 @@ void loop()
         }
         else
         {
-            // Transaction already initiated. Check if to stop current Tx by RFID card
-            if (idTag.equals(getTransactionIdTag()))
-            {
-                // card matches -> user can stop Tx
-                Serial.println(F("[main] End transaction by RFID card"));
-
-                endTransaction(idTag.c_str());
-                endTransaction(getTransaction()->getIdTag());
-            }
-            else
-            {
-                Serial.println(F("[main] Cannot end transaction by RFID card (different card?)"));
-            }
+            if (RFIDstate == RFID_FIRST_TOUCHED_IDLE || RFIDstate == RFID_IDLE)
+                // Transaction already initiated. Check if to stop current Tx by RFID card
+                if (idTag.equals(getTransactionIdTag()))
+                {
+                    // card matches -> user can stop Tx
+                    Serial.println(F("[main] End transaction by RFID card"));
+                    endTransaction(idTag.c_str());
+                    endTransaction(getTransaction()->getIdTag());
+                    if (RFIDstate == RFID_FIRST_TOUCHED_IDLE)
+                        RFIDstate = RFID_SECOND_TOUCHED;
+                }
+                else
+                {
+                    Serial.println(F("[main] Cannot end transaction by RFID card (different card?)"));
+                }
+        }
+    }
+    else
+    {
+        if (RFIDstate == RFID_FIRST_TOUCHED)
+        {
+            RFIDstate = RFID_FIRST_TOUCHED_IDLE;
+        }
+        else if (RFIDstate == RFID_SECOND_TOUCHED)
+        {
+            RFIDstate = RFID_IDLE;
         }
     }
 
