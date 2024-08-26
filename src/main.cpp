@@ -154,7 +154,8 @@ void loop()
      */
     if (ocppPermitsCharge())
     {
-        Serial.println(F("[main] Energize EV plug"));
+        // Serial.println(F("[main] Energize EV plug"));
+
         permitsCharge.LED_On();
         // OCPP set up and transaction running. Energize the EV plug here
     }
@@ -168,7 +169,7 @@ void loop()
     /*
      * Use NFC reader to start and stop transactions
      */
-    if (/* RFID chip detected? */ RFIDTouch.Is_Ready()) // RFID card touched
+    if (/* RFID chip detected? */RFIDTouch.Is_Ready()) // RFID card touched
     {
         String idTag = "ABC"; // e.g. idTag = RFID.readIdTag();
 
@@ -185,8 +186,7 @@ void loop()
              */
             auto ret = beginTransaction(idTag.c_str());
             // if transaction is authorized, then the transaction is initiated
-            if (getTransaction() && getTransaction()->isAuthorized())
-                RFIDstate = RFID_FIRST_TOUCHED;
+            RFIDstate = RFID_FIRST_TOUCHED;
             // auto ret = beginTransaction_authorized(idTag.c_str());
             if (ret)
             {
@@ -203,7 +203,7 @@ void loop()
         }
         else
         {
-            if (RFIDstate == RFID_FIRST_TOUCHED_IDLE || RFIDstate == RFID_IDLE)
+            if (RFIDstate == RFID_FIRST_TOUCHED_IDLE)
                 // Transaction already initiated. Check if to stop current Tx by RFID card
                 if (idTag.equals(getTransactionIdTag()))
                 {
