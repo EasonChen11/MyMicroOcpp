@@ -11,11 +11,11 @@
 #include <MicroOcpp/Model/Transactions/Transaction.h>
 #include <MicroOcpp/Debug.h>
 
-using MicroOcpp::Ocpp201::TransactionEvent;
 using namespace MicroOcpp::Ocpp201;
+using MicroOcpp::JsonDoc;
 
 TransactionEvent::TransactionEvent(Model& model, std::shared_ptr<TransactionEventData> txEvent)
-        : model(model), txEvent(txEvent) {
+        : MemoryManaged("v201.Operation.", "TransactionEvent"), model(model), txEvent(txEvent) {
 
 }
 
@@ -23,44 +23,13 @@ const char* TransactionEvent::getOperationType() {
     return "TransactionEvent";
 }
 
-void TransactionEvent::initiate(StoredOperationHandler *opStore) {
-    if (!txEvent || !txEvent->transaction || !txEvent->transaction) {
-        MO_DBG_ERR("initialization error");
-        return;
-    }
-
-    auto transaction = txEvent->transaction;
-
-    if (txEvent->eventType == TransactionEventData::Type::Started) {
-        if (transaction->started) {
-            MO_DBG_ERR("initialization error");
-            return;
-        }
-
-        transaction->started = true;
-    }
-
-    if (txEvent->eventType == TransactionEventData::Type::Ended) {
-        if (transaction->stopped) {
-            MO_DBG_ERR("initialization error");
-            return;
-        }
-
-        transaction->stopped = true;
-    }
-
-    //commit operation and tx
-
-    MO_DBG_INFO("TransactionEvent initiated");
-}
-
-std::unique_ptr<DynamicJsonDocument> TransactionEvent::createReq() {
-    auto doc = std::unique_ptr<DynamicJsonDocument>(new DynamicJsonDocument(
+std::unique_ptr<JsonDoc> TransactionEvent::createReq() {
+    auto doc = makeJsonDoc(getMemoryTag(),
                 JSON_OBJECT_SIZE(12) + //total of 12 fields
                 JSONDATE_LENGTH + 1 + //timestamp string
                 JSON_OBJECT_SIZE(5) + //transactionInfo
                     MO_TXID_LEN_MAX + 1 + //transactionId
-                MO_IDTOKEN_LEN_MAX + 1)); //idToken
+                MO_IDTOKEN_LEN_MAX + 1); //idToken
                 //meterValue not supported
     JsonObject payload = doc->to<JsonObject>();
 
@@ -308,7 +277,7 @@ void TransactionEvent::processReq(JsonObject payload) {
      */
 }
 
-std::unique_ptr<DynamicJsonDocument> TransactionEvent::createConf() {
+std::unique_ptr<JsonDoc> TransactionEvent::createConf() {
     return createEmptyDocument();
 }
 

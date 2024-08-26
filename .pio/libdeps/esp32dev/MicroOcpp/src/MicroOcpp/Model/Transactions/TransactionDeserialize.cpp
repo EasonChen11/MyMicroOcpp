@@ -16,6 +16,15 @@ bool serializeSendStatus(SendStatus& status, JsonObject out) {
     if (status.isConfirmed()) {
         out["confirmed"] = true;
     }
+    out["opNr"] = status.getOpNr();
+    if (status.getAttemptNr() != 0) {
+        out["attemptNr"] = status.getAttemptNr();
+    }
+    if (status.getAttemptTime() > MIN_TIME) {
+        char attemptTime [JSONDATE_LENGTH + 1];
+        status.getAttemptTime().toJsonString(attemptTime, sizeof(attemptTime));
+        out["attemptTime"] = attemptTime;
+    }
     return true;
 }
 
@@ -26,11 +35,24 @@ bool deserializeSendStatus(SendStatus& status, JsonObject in) {
     if (in["confirmed"] | false) {
         status.confirm();
     }
+    unsigned int opNr = in["opNr"] | (unsigned int)0;
+    if (opNr >= 10) { //10 is first valid tx-related opNr
+        status.setOpNr(opNr);
+    }
+    status.setAttemptNr(in["attemptNr"] | (unsigned int)0);
+    if (in.containsKey("attemptTime")) {
+        Timestamp attemptTime;
+        if (!attemptTime.setTime(in["attemptTime"] | "_Invalid")) {
+            MO_DBG_ERR("deserialization error");
+            return false;
+        }
+        status.setAttemptTime(attemptTime);
+    }
     return true;
 }
 
-bool serializeTransaction(Transaction& tx, DynamicJsonDocument& out) {
-    out = DynamicJsonDocument(1024);
+bool serializeTransaction(Transaction& tx, JsonDoc& out) {
+    out = initJsonDoc("v16.Transactions.TransactionDeserialize", 1024);
     JsonObject state = out.to<JsonObject>();
 
     JsonObject sessionState = state.createNestedObject("session");
@@ -39,6 +61,9 @@ bool serializeTransaction(Transaction& tx, DynamicJsonDocument& out) {
     }
     if (tx.getIdTag()[0] != '\0') {
         sessionState["idTag"] = tx.getIdTag();
+    }
+    if (tx.getParentIdTag()[0] != '\0') {
+        sessionState["parentIdTag"] = tx.getParentIdTag();
     }
     if (tx.isAuthorized()) {
         sessionState["authorized"] = true;
@@ -124,6 +149,13 @@ bool deserializeTransaction(Transaction& tx, JsonObject state) {
 
     if (sessionState.containsKey("idTag")) {
         if (!tx.setIdTag(sessionState["idTag"] | "")) {
+            MO_DBG_ERR("read err");
+            return false;
+        }
+    }
+
+    if (sessionState.containsKey("parentIdTag")) {
+        if (!tx.setParentIdTag(sessionState["parentIdTag"] | "")) {
             MO_DBG_ERR("read err");
             return false;
         }

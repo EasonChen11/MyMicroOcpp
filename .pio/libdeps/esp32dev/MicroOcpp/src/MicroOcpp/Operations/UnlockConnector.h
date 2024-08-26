@@ -15,12 +15,15 @@ class Model;
 
 namespace Ocpp16 {
 
-class UnlockConnector : public Operation {
+class UnlockConnector : public Operation, public MemoryManaged {
 private:
     Model& model;
+
+#if MO_ENABLE_CONNECTOR_LOCK
     std::function<UnlockConnectorResult ()> unlockConnector;
     UnlockConnectorResult cbUnlockResult;
     unsigned long timerStart = 0; //for timeout
+#endif //MO_ENABLE_CONNECTOR_LOCK
 
     const char *errorCode = nullptr;
 public:
@@ -30,7 +33,7 @@ public:
 
     void processReq(JsonObject payload) override;
 
-    std::unique_ptr<DynamicJsonDocument> createConf() override;
+    std::unique_ptr<JsonDoc> createConf() override;
 
     const char *getErrorCode() override {return errorCode;}
 };

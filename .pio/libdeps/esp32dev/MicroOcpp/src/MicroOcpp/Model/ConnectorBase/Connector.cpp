@@ -24,7 +24,7 @@
 #include <MicroOcpp/Model/ConnectorBase/EvseId.h>
 #include <MicroOcpp/Model/Transactions/TransactionService.h>
 
-#include <MicroOcpp/Core/SimpleRequestFactory.h>
+#include <MicroOcpp/Core/Request.h>
 #include <MicroOcpp/Core/Connection.h>
 
 #ifndef MO_TX_CLEAN_ABORTED
@@ -33,17 +33,25 @@
 
 using namespace MicroOcpp;
 
-Connector::Connector(Context& context, int connectorId)
-        : context(context), model(context.getModel()), connectorId{connectorId} {
+Connector::Connector(Context& context, std::shared_ptr<FilesystemAdapter> filesystem, unsigned int connectorId)
+        : MemoryManaged("v16.ConnectorBase.Connector"), context(context), model(context.getModel()), filesystem(filesystem), connectorId(connectorId),
+          errorDataInputs(makeVector<std::function<ErrorData ()>>(getMemoryTag())), trackErrorDataInputs(makeVector<bool>(getMemoryTag())) {
+
+    context.getRequestQueue().addSendQueue(this); //register at RequestQueue as Request emitter
 
     snprintf(availabilityBoolKey, sizeof(availabilityBoolKey), MO_CONFIG_EXT_PREFIX "AVAIL_CONN_%d", connectorId);
     availabilityBool = declareConfiguration<bool>(availabilityBoolKey, true, MO_KEYVALUE_FN, false, false, false);
-    
+
+#if MO_ENABLE_CONNECTOR_LOCK
+    declareConfiguration<bool>("UnlockConnectorOnEVSideDisconnect", true); //read-write
+#else
+    declareConfiguration<bool>("UnlockConnectorOnEVSideDisconnect", false, CONFIGURATION_VOLATILE, true); //read-only because there is no connector lock
+#endif //MO_ENABLE_CONNECTOR_LOCK
+
     connectionTimeOutInt = declareConfiguration<int>("ConnectionTimeOut", 30);
     minimumStatusDurationInt = declareConfiguration<int>("MinimumStatusDuration", 0);
     stopTransactionOnInvalidIdBool = declareConfiguration<bool>("StopTransactionOnInvalidId", true);
     stopTransactionOnEVSideDisconnectBool = declareConfiguration<bool>("StopTransactionOnEVSideDisconnect", true);
-    declareConfiguration<bool>("UnlockConnectorOnEVSideDisconnect", true, CONFIGURATION_VOLATILE, true);
     localPreAuthorizeBool = declareConfiguration<bool>("LocalPreAuthorize", false);
     localAuthorizeOfflineBool = declareConfiguration<bool>("LocalAuthorizeOffline", true);
     allowOfflineTxForUnknownIdBool = MicroOcpp::declareConfiguration<bool>("AllowOfflineTxForUnknownId", false);
@@ -60,12 +68,57 @@ Connector::Connector(Context& context, int connectorId)
 
     txStartOnPowerPathClosedBool = declareConfiguration<bool>(MO_CONFIG_EXT_PREFIX "TxStartOnPowerPathClosed", false);
 
+    transactionMessageAttemptsInt = declareConfiguration<int>("TransactionMessageAttempts", 3);
+    transactionMessageRetryIntervalInt = declareConfiguration<int>("TransactionMessageRetryInterval", 60);
+
     if (!availabilityBool) {
         MO_DBG_ERR("Cannot declare availabilityBool");
     }
 
+    char txFnamePrefix [30];
+    snprintf(txFnamePrefix, sizeof(txFnamePrefix), "tx-%u-", connectorId);
+    size_t txFnamePrefixLen = strlen(txFnamePrefix);
+
+    unsigned int txNrPivot = std::numeric_limits<unsigned int>::max();
+
+    filesystem->ftw_root([this, txFnamePrefix, txFnamePrefixLen, &txNrPivot] (const char *fname) {
+        if (!strncmp(fname, txFnamePrefix, txFnamePrefixLen)) {
+            unsigned int parsedTxNr = 0;
+            for (size_t i = txFnamePrefixLen; fname[i] >= '0' && fname[i] <= '9'; i++) {
+                parsedTxNr *= 10;
+                parsedTxNr += fname[i] - '0';
+            }
+
+            if (txNrPivot == std::numeric_limits<unsigned int>::max()) {
+                txNrPivot = parsedTxNr;
+                txNrBegin = parsedTxNr;
+                txNrEnd = (parsedTxNr + 1) % MAX_TX_CNT;
+                return 0;
+            }
+
+            if ((parsedTxNr + MAX_TX_CNT - txNrPivot) % MAX_TX_CNT < MAX_TX_CNT / 2) {
+                //parsedTxNr is after pivot point
+                if ((parsedTxNr + 1 + MAX_TX_CNT - txNrPivot) % MAX_TX_CNT > (txNrEnd + MAX_TX_CNT - txNrPivot) % MAX_TX_CNT) {
+                    txNrEnd = (parsedTxNr + 1) % MAX_TX_CNT;
+                }
+            } else if ((txNrPivot + MAX_TX_CNT - parsedTxNr) % MAX_TX_CNT < MAX_TX_CNT / 2) {
+                //parsedTxNr is before pivot point
+                if ((txNrPivot + MAX_TX_CNT - parsedTxNr) % MAX_TX_CNT > (txNrPivot + MAX_TX_CNT - txNrBegin) % MAX_TX_CNT) {
+                    txNrBegin = parsedTxNr;
+                }
+            }
+
+            MO_DBG_DEBUG("found %s%u.jsn - Internal range from %u to %u (exclusive)", txFnamePrefix, parsedTxNr, txNrBegin, txNrEnd);
+        }
+        return 0;
+    });
+
+    MO_DBG_DEBUG("found %u transactions for connector %u. Internal range from %u to %u (exclusive)", (txNrEnd + MAX_TX_CNT - txNrBegin) % MAX_TX_CNT, connectorId, txNrBegin, txNrEnd);
+    txNrFront = txNrBegin;
+
     if (model.getTransactionStore()) {
-        transaction = model.getTransactionStore()->getLatestTransaction(connectorId);
+        unsigned int txNrLatest = (txNrEnd + MAX_TX_CNT - 1) % MAX_TX_CNT; //txNr of the most recent tx on flash
+        transaction = model.getTransactionStore()->getTransaction(connectorId, txNrLatest); //returns nullptr if txNrLatest does not exist on flash
     } else {
         MO_DBG_ERR("must initialize TxStore before Connector");
     }
@@ -79,79 +132,80 @@ Connector::~Connector() {
 
 ChargePointStatus Connector::getStatus() {
 
-    ChargePointStatus res = ChargePointStatus::NOT_SET;
+    ChargePointStatus res = ChargePointStatus_UNDEFINED;
 
     /*
     * Handle special case: This is the Connector for the whole CP (i.e. connectorId=0) --> only states Available, Unavailable, Faulted are possible
     */
     if (connectorId == 0) {
         if (isFaulted()) {
-            res = ChargePointStatus::Faulted;
+            res = ChargePointStatus_Faulted;
         } else if (!isOperative()) {
-            res = ChargePointStatus::Unavailable;
+            res = ChargePointStatus_Unavailable;
         } else {
-            res = ChargePointStatus::Available;
+            res = ChargePointStatus_Available;
         }
         return res;
     }
 
     if (isFaulted()) {
-        res = ChargePointStatus::Faulted;
+        res = ChargePointStatus_Faulted;
     } else if (!isOperative()) {
-        res = ChargePointStatus::Unavailable;
+        res = ChargePointStatus_Unavailable;
     } else if (transaction && transaction->isRunning()) {
         //Transaction is currently running
         if (connectorPluggedInput && !connectorPluggedInput()) { //special case when StopTransactionOnEVSideDisconnect is false
-            res = ChargePointStatus::SuspendedEV;
+            res = ChargePointStatus_SuspendedEV;
         } else if (!ocppPermitsCharge() ||
                 (evseReadyInput && !evseReadyInput())) { 
-            res = ChargePointStatus::SuspendedEVSE;
+            res = ChargePointStatus_SuspendedEVSE;
         } else if (evReadyInput && !evReadyInput()) {
-            res = ChargePointStatus::SuspendedEV;
+            res = ChargePointStatus_SuspendedEV;
         } else {
-            res = ChargePointStatus::Charging;
+            res = ChargePointStatus_Charging;
         }
     }
     #if MO_ENABLE_RESERVATION
     else if (model.getReservationService() && model.getReservationService()->getReservation(connectorId)) {
-        res = ChargePointStatus::Reserved;
+        res = ChargePointStatus_Reserved;
     }
     #endif 
-    else if ((!transaction || !transaction->isActive()) &&                 //no transaction preparation
+    else if ((!transaction) &&                                           //no transaction process occupying the connector
                (!connectorPluggedInput || !connectorPluggedInput()) &&   //no vehicle plugged
                (!occupiedInput || !occupiedInput())) {                       //occupied override clear
-        res = ChargePointStatus::Available;
+        res = ChargePointStatus_Available;
     } else {
         /*
          * Either in Preparing or Finishing state. Only way to know is from previous state
          */
         const auto previous = currentStatus;
-        if (previous == ChargePointStatus::Finishing ||
-                previous == ChargePointStatus::Charging ||
-                previous == ChargePointStatus::SuspendedEV ||
-                previous == ChargePointStatus::SuspendedEVSE) {
-            res = ChargePointStatus::Finishing;
+        if (previous == ChargePointStatus_Finishing ||
+                previous == ChargePointStatus_Charging ||
+                previous == ChargePointStatus_SuspendedEV ||
+                previous == ChargePointStatus_SuspendedEVSE ||
+                (transaction && transaction->getStartSync().isRequested())) { //transaction process still occupying the connector
+            res = ChargePointStatus_Finishing;
         } else {
-            res = ChargePointStatus::Preparing;
+            res = ChargePointStatus_Preparing;
         }
     }
 
 #if MO_ENABLE_V201
     if (model.getVersion().major == 2) {
         //OCPP 2.0.1: map v1.6 status onto v2.0.1
-        if (res == ChargePointStatus::Preparing ||
-                res == ChargePointStatus::Charging ||
-                res == ChargePointStatus::SuspendedEV ||
-                res == ChargePointStatus::SuspendedEVSE ||
-                res == ChargePointStatus::Finishing) {
-            res = ChargePointStatus::Occupied;
+        if (res == ChargePointStatus_Preparing ||
+                res == ChargePointStatus_Charging ||
+                res == ChargePointStatus_SuspendedEV ||
+                res == ChargePointStatus_SuspendedEVSE ||
+                res == ChargePointStatus_Finishing) {
+            res = ChargePointStatus_Occupied;
         }
     }
 #endif
 
-    if (res == ChargePointStatus::NOT_SET) {
+    if (res == ChargePointStatus_UNDEFINED) {
         MO_DBG_DEBUG("status undefined");
-        return ChargePointStatus::Faulted; //internal error
+        return ChargePointStatus_Faulted; //internal error
     }
 
     return res;
@@ -195,11 +249,12 @@ void Connector::loop() {
         }
     }
 
-    if (transaction && transaction->isAborted() && MO_TX_CLEAN_ABORTED) {
-        //If the transaction is aborted (invalidated before started), delete all artifacts from flash
+    if (transaction && ((transaction->isAborted() && MO_TX_CLEAN_ABORTED) || (transaction->isSilent() && transaction->getStopSync().isRequested()))) {
+        //If the transaction is aborted (invalidated before started) or is silent and has stopped. Delete all artifacts from flash
         //This is an optimization. The memory management will attempt to remove those files again later
         bool removed = true;
         if (auto mService = model.getMeteringService()) {
+            mService->abortTxMeterData(connectorId);
             removed &= mService->removeTxMeterData(connectorId, transaction->getTxNr());
         }
 
@@ -208,20 +263,26 @@ void Connector::loop() {
         }
 
         if (removed) {
-            model.getTransactionStore()->setTxEnd(connectorId, transaction->getTxNr()); //roll back creation of last tx entry
+            if (txNrFront == txNrEnd) {
+                txNrFront = transaction->getTxNr();
+            }
+            txNrEnd = transaction->getTxNr(); //roll back creation of last tx entry
         }
 
-        MO_DBG_DEBUG("collect aborted transaction %u-%u %s", connectorId, transaction->getTxNr(), removed ? "" : "failure");
+        MO_DBG_DEBUG("collect aborted or silent transaction %u-%u %s", connectorId, transaction->getTxNr(), removed ? "" : "failure");
+        MO_DBG_VERBOSE("txNrBegin=%u, txNrFront=%u, txNrEnd=%u", txNrBegin, txNrFront, txNrEnd);
         transaction = nullptr;
     }
 
     if (transaction && transaction->isAborted()) {
         MO_DBG_DEBUG("collect aborted transaction %u-%u", connectorId, transaction->getTxNr());
+        MO_DBG_VERBOSE("txNrBegin=%u, txNrFront=%u, txNrEnd=%u", txNrBegin, txNrFront, txNrEnd);
         transaction = nullptr;
     }
 
     if (transaction && transaction->getStopSync().isRequested()) {
         MO_DBG_DEBUG("collect obsolete transaction %u-%u", connectorId, transaction->getTxNr());
+        MO_DBG_VERBOSE("txNrBegin=%u, txNrFront=%u, txNrEnd=%u", txNrBegin, txNrFront, txNrEnd);
         transaction = nullptr;
     }
 
@@ -294,36 +355,27 @@ void Connector::loop() {
                     transaction->setStartBootNr(model.getBootNr());
                 }
 
-                updateTxNotification(TxNotification::StartTx);
+                transaction->getStartSync().setRequested();
+                transaction->getStartSync().setOpNr(context.getRequestQueue().getNextOpNr());
 
                 if (transaction->isSilent()) {
                     MO_DBG_INFO("silent Transaction: omit StartTx");
-                    transaction->getStartSync().setRequested();
                     transaction->getStartSync().confirm();
-                    transaction->commit();
-                    return;
+                } else {
+                    //normal transaction, record txMeterData
+                    if (model.getMeteringService()) {
+                        model.getMeteringService()->beginTxMeterData(transaction.get());
+                    }
                 }
 
                 transaction->commit();
 
-                if (model.getMeteringService()) {
-                    model.getMeteringService()->beginTxMeterData(transaction.get());
-                }
+                updateTxNotification(TxNotification::StartTx);
 
-                auto startTx = makeRequest(new Ocpp16::StartTransaction(model, transaction));
-                startTx->setTimeout(0);
-                startTx->setOnReceiveConfListener([this] (JsonObject response) {
-                    //fetch authorization status from StartTransaction.conf() for user notification
-
-                    const char* idTagInfoStatus = response["idTagInfo"]["status"] | "_Undefined";
-                    if (strcmp(idTagInfoStatus, "Accepted")) {
-                        updateTxNotification(TxNotification::DeAuthorized);
-                    }
-                });
-                context.initiateRequest(std::move(startTx));
+                //fetchFrontRequest will create the StartTransaction and pass it to the message sender
                 return;
             }
-        } else  {
+        } else {
             //stop tx?
 
             if (!transaction->isActive() &&
@@ -331,20 +383,6 @@ void Connector::loop() {
                 //stop transaction
 
                 MO_DBG_INFO("Session mngt: trigger StopTransaction");
-
-                if (transaction->isSilent()) {
-                    MO_DBG_INFO("silent Transaction: omit StopTx");
-                    updateTxNotification(TxNotification::StopTx);
-                    transaction->getStopSync().setRequested();
-                    transaction->getStopSync().confirm();
-                    if (auto mService = model.getMeteringService()) {
-                        mService->removeTxMeterData(connectorId, transaction->getTxNr());
-                    }
-                    model.getTransactionStore()->remove(connectorId, transaction->getTxNr());
-                    model.getTransactionStore()->setTxEnd(connectorId, transaction->getTxNr());
-                    transaction = nullptr;
-                    return;
-                }
                 
                 auto meteringService = model.getMeteringService();
                 if (transaction->getMeterStop() < 0 && meteringService) {
@@ -361,25 +399,24 @@ void Connector::loop() {
                     transaction->setStopBootNr(model.getBootNr());
                 }
 
+                transaction->getStopSync().setRequested();
+                transaction->getStopSync().setOpNr(context.getRequestQueue().getNextOpNr());
+
+                if (transaction->isSilent()) {
+                    MO_DBG_INFO("silent Transaction: omit StopTx");
+                    transaction->getStopSync().confirm();
+                } else {
+                    //normal transaction, record txMeterData
+                    if (model.getMeteringService()) {
+                        model.getMeteringService()->endTxMeterData(transaction.get());
+                    }
+                }
+
                 transaction->commit();
 
                 updateTxNotification(TxNotification::StopTx);
 
-                std::shared_ptr<TransactionMeterData> stopTxData;
-
-                if (meteringService) {
-                    stopTxData = meteringService->endTxMeterData(transaction.get());
-                }
-
-                std::unique_ptr<Request> stopTx;
-
-                if (stopTxData) {
-                    stopTx = makeRequest(new Ocpp16::StopTransaction(model, std::move(transaction), stopTxData->retrieveStopTxData()));
-                } else {
-                    stopTx = makeRequest(new Ocpp16::StopTransaction(model, std::move(transaction)));
-                }
-                stopTx->setTimeout(0);
-                context.initiateRequest(std::move(stopTx));
+                //fetchFrontRequest will create the StopTransaction and pass it to the message sender
                 return;
             }
         }
@@ -403,33 +440,56 @@ void Connector::loop() {
         freeVendTrackPlugged = connectorPluggedInput();
     }
 
-    auto status = getStatus();
+    ErrorData errorData {nullptr};
+    errorData.severity = 0;
+    int errorDataIndex = -1;
 
-    if (model.getVersion().major == 1) {
+    if (model.getVersion().major == 1 && model.getClock().now() >= MIN_TIME) {
         //OCPP 1.6: use StatusNotification to send error codes
+
+        if (reportedErrorIndex >= 0) {
+            auto error = errorDataInputs[reportedErrorIndex].operator()();
+            if (error.isError) {
+                errorData = error;
+                errorDataIndex = reportedErrorIndex;
+            }
+        }
+
         for (auto i = std::min(errorDataInputs.size(), trackErrorDataInputs.size()); i >= 1; i--) {
             auto index = i - 1;
-            auto error = errorDataInputs[index].operator()();
-            if (error.isError && !trackErrorDataInputs[index]) {
+            ErrorData error {nullptr};
+            if ((int)index != errorDataIndex) {
+                error = errorDataInputs[index].operator()();
+            } else {
+                error = errorData;
+            }
+            if (error.isError && !trackErrorDataInputs[index] && error.severity >= errorData.severity) {
                 //new error
-                auto statusNotification = makeRequest(
-                        new Ocpp16::StatusNotification(connectorId, status, model.getClock().now(), error));
-                statusNotification->setTimeout(0);
-                context.initiateRequest(std::move(statusNotification));
-
-                currentStatus = status;
-                reportedStatus = status;
-                trackErrorDataInputs[index] = true;
+                errorData = error;
+                errorDataIndex = index;
+            } else if (error.isError && error.severity > errorData.severity) {
+                errorData = error;
+                errorDataIndex = index;
             } else if (!error.isError && trackErrorDataInputs[index]) {
                 //reset error
                 trackErrorDataInputs[index] = false;
             }
         }
-    }
+
+        if (errorDataIndex != reportedErrorIndex) {
+            if (errorDataIndex >= 0 || MO_REPORT_NOERROR) {
+                reportedStatus = ChargePointStatus_UNDEFINED; //trigger sending currentStatus again with code NoError
+            } else {
+                reportedErrorIndex = -1;
+            }
+        }
+    } //if (model.getVersion().major == 1)
+
+    auto status = getStatus();
 
     if (status != currentStatus) {
         MO_DBG_DEBUG("Status changed %s -> %s %s",
-                currentStatus == ChargePointStatus::NOT_SET ? "" : cstrFromOcppEveState(currentStatus),
+                currentStatus == ChargePointStatus_UNDEFINED ? "" : cstrFromOcppEveState(currentStatus),
                 cstrFromOcppEveState(status),
                 minimumStatusDurationInt->getInt() ? " (will report delayed)" : "");
         currentStatus = status;
@@ -437,10 +497,14 @@ void Connector::loop() {
     }
 
     if (reportedStatus != currentStatus &&
-            model.getClock().now() >= Timestamp(2010,0,0,0,0,0) &&
+            model.getClock().now() >= MIN_TIME &&
             (minimumStatusDurationInt->getInt() <= 0 || //MinimumStatusDuration disabled
             mocpp_tick_ms() - t_statusTransition >= ((unsigned long) minimumStatusDurationInt->getInt()) * 1000UL)) {
         reportedStatus = currentStatus;
+        reportedErrorIndex = errorDataIndex;
+        if (errorDataIndex >= 0) {
+            trackErrorDataInputs[errorDataIndex] = true;
+        }
         Timestamp reportedTimestamp = model.getClock().now();
         reportedTimestamp -= (mocpp_tick_ms() - t_statusTransition) / 1000UL;
 
@@ -451,7 +515,7 @@ void Connector::loop() {
                     new Ocpp201::StatusNotification(connectorId, reportedStatus, reportedTimestamp)) :
             #endif //MO_ENABLE_V201
                 makeRequest(
-                    new Ocpp16::StatusNotification(connectorId, reportedStatus, reportedTimestamp, getErrorCode()));
+                    new Ocpp16::StatusNotification(connectorId, reportedStatus, reportedTimestamp, errorData));
 
         statusNotification->setTimeout(0);
         context.initiateRequest(std::move(statusNotification));
@@ -472,8 +536,8 @@ bool Connector::isFaulted() {
 }
 
 const char *Connector::getErrorCode() {
-    for (auto i = errorDataInputs.size(); i >= 1; i--) {
-        auto error = errorDataInputs[i-1].operator()();
+    if (reportedErrorIndex >= 0) {
+        auto error = errorDataInputs[reportedErrorIndex].operator()();
         if (error.isError && error.errorCode) {
             return error.errorCode;
         }
@@ -483,14 +547,14 @@ const char *Connector::getErrorCode() {
 
 std::shared_ptr<Transaction> Connector::allocateTransaction() {
 
-    decltype(allocateTransaction()) tx;
+    std::shared_ptr<Transaction> tx;
 
-    //clean possible aorted tx
-    auto txr = model.getTransactionStore()->getTxEnd(connectorId);
-    auto txsize = model.getTransactionStore()->size(connectorId);
-    for (decltype(txsize) i = 0; i < txsize; i++) {
+    //clean possible aborted tx
+    unsigned int txr = txNrEnd;
+    unsigned int txSize = (txNrEnd + MAX_TX_CNT - txNrBegin) % MAX_TX_CNT;
+    for (unsigned int i = 0; i < txSize; i++) {
         txr = (txr + MAX_TX_CNT - 1) % MAX_TX_CNT; //decrement by 1
-        
+
         auto tx = model.getTransactionStore()->getTransaction(connectorId, txr);
         //check if dangling silent tx, aborted tx, or corrupted entry (tx == null)
         if (!tx || tx->isSilent() || (tx->isAborted() && MO_TX_CLEAN_ABORTED)) {
@@ -503,7 +567,10 @@ std::shared_ptr<Transaction> Connector::allocateTransaction() {
                 removed &= model.getTransactionStore()->remove(connectorId, txr);
             }
             if (removed) {
-                model.getTransactionStore()->setTxEnd(connectorId, txr);
+                if (txNrFront == txNrEnd) {
+                    txNrFront = txr;
+                }
+                txNrEnd = txr;
                 MO_DBG_WARN("deleted dangling silent or aborted tx for new transaction");
             } else {
                 MO_DBG_ERR("memory corruption");
@@ -515,16 +582,20 @@ std::shared_ptr<Transaction> Connector::allocateTransaction() {
         }
     }
 
+    txSize = (txNrEnd + MAX_TX_CNT - txNrBegin) % MAX_TX_CNT; //refresh after cleaning txs
+
     //try to create new transaction
-    tx = model.getTransactionStore()->createTransaction(connectorId);
+    if (txSize < MO_TXRECORD_SIZE) {
+        tx = model.getTransactionStore()->createTransaction(connectorId, txNrEnd);
+    }
 
     if (!tx) {
         //could not create transaction - now, try to replace tx history entry
 
-        auto txl = model.getTransactionStore()->getTxBegin(connectorId);
-        auto txsize = model.getTransactionStore()->size(connectorId);
+        unsigned int txl = txNrBegin;
+        txSize = (txNrEnd + MAX_TX_CNT - txNrBegin) % MAX_TX_CNT;
 
-        for (decltype(txsize) i = 0; i < txsize; i++) {
+        for (unsigned int i = 0; i < txSize; i++) {
 
             if (tx) {
                 //success, finished here
@@ -535,7 +606,7 @@ std::shared_ptr<Transaction> Connector::allocateTransaction() {
 
             auto txhist = model.getTransactionStore()->getTransaction(connectorId, txl);
             //oldest entry, now check if it's history and can be removed or corrupted entry
-            if (!txhist || txhist->isCompleted() || txhist->isAborted()) {
+            if (!txhist || txhist->isCompleted() || txhist->isAborted() || (txhist->isSilent() && txhist->getStopSync().isRequested())) {
                 //yes, remove
                 bool removed = true;
                 if (auto mService = model.getMeteringService()) {
@@ -545,10 +616,14 @@ std::shared_ptr<Transaction> Connector::allocateTransaction() {
                     removed &= model.getTransactionStore()->remove(connectorId, txl);
                 }
                 if (removed) {
-                    model.getTransactionStore()->setTxBegin(connectorId, (txl + 1) % MAX_TX_CNT);
+                    txNrBegin = (txl + 1) % MAX_TX_CNT;
+                    if (txNrFront == txl) {
+                        txNrFront = txNrBegin;
+                    }
                     MO_DBG_DEBUG("deleted tx history entry for new transaction");
+                    MO_DBG_VERBOSE("txNrBegin=%u, txNrFront=%u, txNrEnd=%u", txNrBegin, txNrFront, txNrEnd);
 
-                    tx = model.getTransactionStore()->createTransaction(connectorId);
+                    tx = model.getTransactionStore()->createTransaction(connectorId, txNrEnd);
                 } else {
                     MO_DBG_ERR("memory corruption");
                     break;
@@ -568,12 +643,27 @@ std::shared_ptr<Transaction> Connector::allocateTransaction() {
         //couldn't create normal transaction -> check if to start charging without real transaction
         if (silentOfflineTransactionsBool && silentOfflineTransactionsBool->getBool()) {
             //try to handle charging session without sending StartTx or StopTx to the server
-            tx = model.getTransactionStore()->createTransaction(connectorId, true);
+            tx = model.getTransactionStore()->createTransaction(connectorId, txNrEnd, true);
 
             if (tx) {
                 MO_DBG_DEBUG("created silent transaction");
             }
         }
+    }
+
+    if (tx) {
+        //clean meter data which could still be here from a rolled-back transaction
+        if (auto mService = model.getMeteringService()) {
+            if (!mService->removeTxMeterData(connectorId, tx->getTxNr())) {
+                MO_DBG_ERR("memory corruption");
+            }
+        }
+    }
+
+    if (tx) {
+        txNrEnd = (txNrEnd + 1) % MAX_TX_CNT;
+        MO_DBG_DEBUG("advance txNrEnd %u-%u", connectorId, txNrEnd);
+        MO_DBG_VERBOSE("txNrBegin=%u, txNrFront=%u, txNrEnd=%u", txNrBegin, txNrFront, txNrEnd);
     }
 
     return tx;
@@ -653,8 +743,6 @@ std::shared_ptr<Transaction> Connector::beginTransaction(const char *idTag) {
             }
         }
     }
-    #else
-    (void)parentIdTag;
     #endif //MO_ENABLE_RESERVATION
 
     transaction = allocateTransaction();
@@ -669,6 +757,10 @@ std::shared_ptr<Transaction> Connector::beginTransaction(const char *idTag) {
         transaction->setIdTag("");
     } else {
         transaction->setIdTag(idTag);
+    }
+
+    if (parentIdTag) {
+        transaction->setParentIdTag(parentIdTag);
     }
 
     transaction->setBeginTimestamp(model.getClock().now());
@@ -732,6 +824,10 @@ std::shared_ptr<Transaction> Connector::beginTransaction(const char *idTag) {
             }
         }
         #endif //MO_ENABLE_RESERVATION
+
+        if (idTagInfo.containsKey("parentIdTag")) {
+            tx->setParentIdTag(idTagInfo["parentIdTag"] | "");
+        }
 
         MO_DBG_DEBUG("Authorized transaction process (%s)", tx->getIdTag());
         tx->setAuthorized();
@@ -818,6 +914,10 @@ std::shared_ptr<Transaction> Connector::beginTransaction_authorized(const char *
         transaction->setIdTag("");
     } else {
         transaction->setIdTag(idTag);
+    }
+
+    if (parentIdTag) {
+        transaction->setParentIdTag(parentIdTag);
     }
 
     transaction->setBeginTimestamp(model.getClock().now());
@@ -945,6 +1045,7 @@ void Connector::addErrorDataInput(std::function<ErrorData ()> errorDataInput) {
     this->trackErrorDataInputs.push_back(false);
 }
 
+#if MO_ENABLE_CONNECTOR_LOCK
 void Connector::setOnUnlockConnector(std::function<UnlockConnectorResult()> unlockConnector) {
     this->onUnlockConnector = unlockConnector;
 }
@@ -952,6 +1053,7 @@ void Connector::setOnUnlockConnector(std::function<UnlockConnectorResult()> unlo
 std::function<UnlockConnectorResult()> Connector::getOnUnlockConnector() {
     return this->onUnlockConnector;
 }
+#endif //MO_ENABLE_CONNECTOR_LOCK
 
 void Connector::setStartTxReadyInput(std::function<bool()> startTxReady) {
     this->startTxReadyInput = startTxReady;
@@ -973,4 +1075,241 @@ void Connector::updateTxNotification(TxNotification event) {
     if (txNotificationOutput) {
         txNotificationOutput(transaction.get(), event);
     }
+}
+
+unsigned int Connector::getFrontRequestOpNr() {
+
+    /*
+     * Advance front transaction?
+     */
+
+    unsigned int txSize = (txNrEnd + MAX_TX_CNT - txNrFront) % MAX_TX_CNT;
+
+    if (transactionFront && txSize == 0) {
+        //catch edge case where txBack has been rolled back and txFront was equal to txBack
+        MO_DBG_DEBUG("collect front transaction %u-%u after tx rollback", connectorId, transactionFront->getTxNr());
+        MO_DBG_VERBOSE("txNrBegin=%u, txNrFront=%u, txNrEnd=%u", txNrBegin, txNrFront, txNrEnd);
+        transactionFront = nullptr;
+    }
+
+    for (unsigned int i = 0; i < txSize; i++) {
+
+        if (!transactionFront) {
+            transactionFront = model.getTransactionStore()->getTransaction(connectorId, txNrFront);
+
+            #if MO_DBG_LEVEL >= MO_DL_VERBOSE
+            if (transactionFront)
+            {
+                MO_DBG_VERBOSE("load front transaction %u-%u", connectorId, transactionFront->getTxNr());
+            }
+            #endif
+        }
+
+        if (transactionFront && (transactionFront->isAborted() || transactionFront->isCompleted() || transactionFront->isSilent())) {
+            //advance front
+            MO_DBG_DEBUG("collect front transaction %u-%u", connectorId, transactionFront->getTxNr());
+            transactionFront = nullptr;
+            txNrFront = (txNrFront + 1) % MAX_TX_CNT;
+            MO_DBG_VERBOSE("txNrBegin=%u, txNrFront=%u, txNrEnd=%u", txNrBegin, txNrFront, txNrEnd);
+        } else {
+            //front is accurate. Done here
+            break;
+        }
+    }
+
+    if (transactionFront) {
+        if (transactionFront->getStartSync().isRequested() && !transactionFront->getStartSync().isConfirmed()) {
+            return transactionFront->getStartSync().getOpNr();
+        }
+
+        if (transactionFront->getStopSync().isRequested() && !transactionFront->getStopSync().isConfirmed()) {
+            return transactionFront->getStopSync().getOpNr();
+        }
+    }
+
+    return NoOperation;
+}
+
+std::unique_ptr<Request> Connector::fetchFrontRequest() {
+
+    if (transactionFront && !transactionFront->isSilent()) {
+        if (transactionFront->getStartSync().isRequested() && !transactionFront->getStartSync().isConfirmed()) {
+            //send StartTx?
+
+            bool cancelStartTx = false;
+
+            if (transactionFront->getStartTimestamp() < MIN_TIME &&
+                    transactionFront->getStartBootNr() != model.getBootNr()) {
+                //time not set, cannot be restored anymore -> invalid tx
+                MO_DBG_ERR("cannot recover tx from previus run");
+
+                cancelStartTx = true;
+            }
+
+            if ((int)transactionFront->getStartSync().getAttemptNr() >= transactionMessageAttemptsInt->getInt()) {
+                MO_DBG_WARN("exceeded TransactionMessageAttempts. Discard transaction");
+
+                cancelStartTx = true;
+            }
+
+            if (cancelStartTx) {
+                transactionFront->setSilent();
+                transactionFront->setInactive();
+                transactionFront->commit();
+
+                //clean up possible tx records
+                if (auto mSerivce = model.getMeteringService()) {
+                    mSerivce->removeTxMeterData(connectorId, transactionFront->getTxNr());
+                }
+                //next getFrontRequestOpNr() call will collect transactionFront
+                return nullptr;
+            }
+
+            Timestamp nextAttempt = transactionFront->getStartSync().getAttemptTime() +
+                                    transactionFront->getStartSync().getAttemptNr() * std::max(0, transactionMessageRetryIntervalInt->getInt());
+
+            if (nextAttempt > model.getClock().now()) {
+                return nullptr;
+            }
+
+            transactionFront->getStartSync().advanceAttemptNr();
+            transactionFront->getStartSync().setAttemptTime(model.getClock().now());
+            transactionFront->commit();
+
+            auto startTx = makeRequest(new Ocpp16::StartTransaction(model, transactionFront));
+            startTx->setOnReceiveConfListener([this] (JsonObject response) {
+                //fetch authorization status from StartTransaction.conf() for user notification
+
+                const char* idTagInfoStatus = response["idTagInfo"]["status"] | "_Undefined";
+                if (strcmp(idTagInfoStatus, "Accepted")) {
+                    updateTxNotification(TxNotification::DeAuthorized);
+                }
+            });
+            auto transactionFront_capture = transactionFront;
+            startTx->setOnAbortListener([this, transactionFront_capture] () {
+                //shortcut to the attemptNr check above. Relevant if other operations block the queue while this StartTx is timing out
+                if (transactionFront_capture && (int)transactionFront_capture->getStartSync().getAttemptNr() >= transactionMessageAttemptsInt->getInt()) {
+                    MO_DBG_WARN("exceeded TransactionMessageAttempts. Discard transaction");
+
+                    transactionFront_capture->setSilent();
+                    transactionFront_capture->setInactive();
+                    transactionFront_capture->commit();
+
+                    //clean up possible tx records
+                    if (auto mSerivce = model.getMeteringService()) {
+                        mSerivce->removeTxMeterData(connectorId, transactionFront_capture->getTxNr());
+                    }
+                    //next getFrontRequestOpNr() call will collect transactionFront
+                }
+            });
+
+            return startTx;
+        }
+
+        if (transactionFront->getStopSync().isRequested() && !transactionFront->getStopSync().isConfirmed()) {
+            //send StopTx?
+
+            if ((int)transactionFront->getStopSync().getAttemptNr() >= transactionMessageAttemptsInt->getInt()) {
+                MO_DBG_WARN("exceeded TransactionMessageAttempts. Discard transaction");
+
+                transactionFront->setSilent();
+
+                //clean up possible tx records
+                if (auto mSerivce = model.getMeteringService()) {
+                    mSerivce->removeTxMeterData(connectorId, transactionFront->getTxNr());
+                }
+                //next getFrontRequestOpNr() call will collect transactionFront
+                return nullptr;
+            }
+
+            Timestamp nextAttempt = transactionFront->getStopSync().getAttemptTime() +
+                                    transactionFront->getStopSync().getAttemptNr() * std::max(0, transactionMessageRetryIntervalInt->getInt());
+
+            if (nextAttempt > model.getClock().now()) {
+                return nullptr;
+            }
+
+            transactionFront->getStopSync().advanceAttemptNr();
+            transactionFront->getStopSync().setAttemptTime(model.getClock().now());
+            transactionFront->commit();
+
+            std::shared_ptr<TransactionMeterData> stopTxData;
+
+            if (auto meteringService = model.getMeteringService()) {
+                stopTxData = meteringService->getStopTxMeterData(transactionFront.get());
+            }
+
+            std::unique_ptr<Request> stopTx;
+
+            if (stopTxData) {
+                stopTx = makeRequest(new Ocpp16::StopTransaction(model, transactionFront, stopTxData->retrieveStopTxData()));
+            } else {
+                stopTx = makeRequest(new Ocpp16::StopTransaction(model, transactionFront));
+            }
+            auto transactionFront_capture = transactionFront;
+            stopTx->setOnAbortListener([this, transactionFront_capture] () {
+                //shortcut to the attemptNr check above. Relevant if other operations block the queue while this StopTx is timing out
+                if ((int)transactionFront_capture->getStopSync().getAttemptNr() >= transactionMessageAttemptsInt->getInt()) {
+                    MO_DBG_WARN("exceeded TransactionMessageAttempts. Discard transaction");
+
+                    transactionFront_capture->setSilent();
+                    transactionFront_capture->setInactive();
+                    transactionFront_capture->commit();
+
+                    //clean up possible tx records
+                    if (auto mSerivce = model.getMeteringService()) {
+                        mSerivce->removeTxMeterData(connectorId, transactionFront_capture->getTxNr());
+                    }
+                    //next getFrontRequestOpNr() call will collect transactionFront
+                }
+            });
+
+            return stopTx;
+        }
+    }
+
+    return nullptr;
+}
+
+bool Connector::triggerStatusNotification() {
+
+    ErrorData errorData {nullptr};
+    errorData.severity = 0;
+
+    if (reportedErrorIndex >= 0) {
+        errorData = errorDataInputs[reportedErrorIndex].operator()();
+    } else {
+        //find errorData with maximum severity
+        for (auto i = errorDataInputs.size(); i >= 1; i--) {
+            auto index = i - 1;
+            ErrorData error = errorDataInputs[index].operator()();
+            if (error.isError && error.severity >= errorData.severity) {
+                errorData = error;
+            }
+        }
+    }
+
+    auto statusNotification = makeRequest(new Ocpp16::StatusNotification(
+                connectorId,
+                getStatus(),
+                context.getModel().getClock().now(),
+                errorData));
+
+    statusNotification->setTimeout(60000);
+
+    context.getRequestQueue().sendRequestPreBoot(std::move(statusNotification));
+
+    return true;
+}
+
+unsigned int Connector::getTxNrBeginHistory() {
+    return txNrBegin;
+}
+
+unsigned int Connector::getTxNrFront() {
+    return txNrFront;
+}
+
+unsigned int Connector::getTxNrEnd() {
+    return txNrEnd;
 }

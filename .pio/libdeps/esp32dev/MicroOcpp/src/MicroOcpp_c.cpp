@@ -6,6 +6,7 @@
 #include "MicroOcpp.h"
 
 #include <MicroOcpp/Model/Certificates/Certificate_c.h>
+#include <MicroOcpp/Core/Memory.h>
 
 #include <MicroOcpp/Platform.h>
 #include <MicroOcpp/Debug.h>
@@ -120,6 +121,7 @@ MicroOcpp::OnReceiveErrorListener adaptFn(OnCallError fn) {
     };
 }
 
+#if MO_ENABLE_CONNECTOR_LOCK
 std::function<UnlockConnectorResult()> adaptFn(PollUnlockResult fn) {
     return [fn] () {return fn();};
 }
@@ -127,6 +129,7 @@ std::function<UnlockConnectorResult()> adaptFn(PollUnlockResult fn) {
 std::function<UnlockConnectorResult()> adaptFn(unsigned int connectorId, PollUnlockResult_m fn) {
     return [fn, connectorId] () {return fn(connectorId);};
 }
+#endif //MO_ENABLE_CONNECTOR_LOCK
 
 void ocpp_beginTransaction(const char *idTag) {
     beginTransaction(idTag);
@@ -193,6 +196,14 @@ bool ocpp_ocppPermitsCharge() {
 }
 bool ocpp_ocppPermitsCharge_m(unsigned int connectorId) {
     return ocppPermitsCharge(connectorId);
+}
+
+ChargePointStatus ocpp_getChargePointStatus() {
+    return getChargePointStatus();
+}
+
+ChargePointStatus ocpp_getChargePointStatus_m(unsigned int connectorId) {
+    return getChargePointStatus(connectorId);
 }
 
 void ocpp_setConnectorPluggedInput(InputBool pluggedInput) {
@@ -273,12 +284,15 @@ void ocpp_addMeterValueInput_m(unsigned int connectorId, MeterValueInput *meterV
     addMeterValueInput(std::move(svs), connectorId);
 }
 
+
+#if MO_ENABLE_CONNECTOR_LOCK
 void ocpp_setOnUnlockConnectorInOut(PollUnlockResult onUnlockConnectorInOut) {
     setOnUnlockConnectorInOut(adaptFn(onUnlockConnectorInOut));
 }
 void ocpp_setOnUnlockConnectorInOut_m(unsigned int connectorId, PollUnlockResult_m onUnlockConnectorInOut) {
     setOnUnlockConnectorInOut(adaptFn(connectorId, onUnlockConnectorInOut), connectorId);
 }
+#endif //MO_ENABLE_CONNECTOR_LOCK
 
 void ocpp_setStartTxReadyInput(InputBool startTxReady) {
     setStartTxReadyInput(adaptFn(startTxReady));
@@ -350,7 +364,7 @@ void ocpp_set_console_out_c(void (*console_out)(const char *msg)) {
 
 void ocpp_authorize(const char *idTag, AuthorizeConfCallback onConfirmation, AuthorizeAbortCallback onAbort, AuthorizeTimeoutCallback onTimeout, AuthorizeErrorCallback onError, void *user_data) {
     
-    std::string idTag_capture = idTag;
+    auto idTag_capture = MicroOcpp::makeString("MicroOcpp_c.cpp", idTag);
 
     authorize(idTag,
             onConfirmation ? [onConfirmation, idTag_capture, user_data] (JsonObject payload) {

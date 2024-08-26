@@ -5,7 +5,7 @@
 #include <MicroOcpp/Model/Reset/ResetService.h>
 #include <MicroOcpp/Core/Context.h>
 #include <MicroOcpp/Model/Model.h>
-#include <MicroOcpp/Core/SimpleRequestFactory.h>
+#include <MicroOcpp/Core/Request.h>
 #include <MicroOcpp/Core/Configuration.h>
 #include <MicroOcpp/Operations/Reset.h>
 
@@ -26,7 +26,7 @@
 using namespace MicroOcpp;
 
 ResetService::ResetService(Context& context)
-      : context(context) {
+      : MemoryManaged("v16.Reset.ResetService"), context(context) {
 
     resetRetriesInt = declareConfiguration<int>("ResetRetries", 2);
 
@@ -53,12 +53,8 @@ void ResetService::loop() {
         MO_DBG_ERR("Reset device failure. %s", outstandingResetRetries == 0 ? "Abort" : "Retry");
 
         if (outstandingResetRetries <= 0) {
-            for (unsigned int cId = 0; cId < context.getModel().getNumConnectors(); cId++) {
-                auto connector = context.getModel().getConnector(cId);
-                connector->setAvailabilityVolatile(true);
-            }
 
-            ChargePointStatus cpStatus = ChargePointStatus::NOT_SET;
+            ChargePointStatus cpStatus = ChargePointStatus_UNDEFINED;
             if (context.getModel().getNumConnectors() > 0) {
                 cpStatus = context.getModel().getConnector(0)->getStatus();
             }
@@ -98,11 +94,6 @@ void ResetService::initiateReset(bool isHard) {
         outstandingResetRetries = 5;
     }
     t_resetRetry = mocpp_tick_ms();
-
-    for (unsigned int cId = 0; cId < context.getModel().getNumConnectors(); cId++) {
-        auto connector = context.getModel().getConnector(cId);
-        connector->setAvailabilityVolatile(false);
-    }
 }
 
 #if MO_PLATFORM == MO_PLATFORM_ARDUINO && (defined(ESP32) || defined(ESP8266))
@@ -119,7 +110,7 @@ namespace MicroOcpp {
 namespace Ocpp201 {
 
 ResetService::ResetService(Context& context)
-      : context(context) {
+      : MemoryManaged("v201.Reset.ResetService"), context(context), evses(makeVector<Evse>(getMemoryTag())) {
 
     auto varService = context.getModel().getVariableService();
     resetRetriesInt = varService->declareVariable<int>("OCPPCommCtrlr", "ResetRetries", 0);

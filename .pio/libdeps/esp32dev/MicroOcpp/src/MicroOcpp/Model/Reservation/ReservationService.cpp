@@ -18,7 +18,7 @@
 
 using namespace MicroOcpp;
 
-ReservationService::ReservationService(Context& context, unsigned int numConnectors) : context(context), maxReservations((int) numConnectors - 1) {
+ReservationService::ReservationService(Context& context, unsigned int numConnectors) : MemoryManaged("v16.Reservation.ReservationService"), context(context), maxReservations((int) numConnectors - 1), reservations(makeVector<std::unique_ptr<Reservation>>(getMemoryTag())) {
     if (maxReservations > 0) {
         reservations.reserve((size_t) maxReservations);
         for (int i = 0; i < maxReservations; i++) {
@@ -46,7 +46,7 @@ void ReservationService::loop() {
 
             //check if connector went inoperative
             auto cStatus = connector->getStatus();
-            if (cStatus == ChargePointStatus::Faulted || cStatus == ChargePointStatus::Unavailable) {
+            if (cStatus == ChargePointStatus_Faulted || cStatus == ChargePointStatus_Unavailable) {
                 reservation->clear();
                 continue;
             }
@@ -157,7 +157,7 @@ Reservation *ReservationService::getReservation(unsigned int connectorId, const 
             continue;
         }
         if (auto connector = context.getModel().getConnector(cId)) {
-            if (connector->getStatus() == ChargePointStatus::Available) {
+            if (connector->getStatus() == ChargePointStatus_Available) {
                 availableCount++;
             }
         }

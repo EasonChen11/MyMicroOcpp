@@ -8,6 +8,7 @@
 #ifdef __cplusplus
 
 #include <MicroOcpp/Core/Time.h>
+#include <MicroOcpp/Core/Memory.h>
 #include <MicroOcpp/Operations/CiStrings.h>
 
 namespace MicroOcpp {
@@ -26,14 +27,25 @@ class SendStatus {
 private:
     bool requested = false;
     bool confirmed = false;
+    
+    unsigned int opNr = 0;
+    unsigned int attemptNr = 0;
+    Timestamp attemptTime = MIN_TIME;
 public:
     void setRequested() {this->requested = true;}
     bool isRequested() {return requested;}
     void confirm() {confirmed = true;}
     bool isConfirmed() {return confirmed;}
+    void setOpNr(unsigned int opNr) {this->opNr = opNr;}
+    unsigned int getOpNr() {return opNr;}
+    void advanceAttemptNr() {attemptNr++;}
+    void setAttemptNr(unsigned int attemptNr) {this->attemptNr = attemptNr;}
+    unsigned int getAttemptNr() {return attemptNr;}
+    const Timestamp& getAttemptTime() {return attemptTime;}
+    void setAttemptTime(const Timestamp& timestamp) {attemptTime = timestamp;}
 };
 
-class Transaction {
+class Transaction : public MemoryManaged {
 private:
     ConnectorTransactionStore& context;
 
@@ -43,6 +55,7 @@ private:
      * Attributes existing before StartTransaction
      */
     char idTag [IDTAG_LEN_MAX + 1] = {'\0'};
+    char parentIdTag [IDTAG_LEN_MAX + 1] = {'\0'};
     bool authorized = false;    //if the given idTag was authorized
     bool deauthorized = false;  //if the server revoked a local authorization
     Timestamp begin_timestamp = MIN_TIME;
@@ -78,6 +91,7 @@ private:
 
 public:
     Transaction(ConnectorTransactionStore& context, unsigned int connectorId, unsigned int txNr, bool silent = false) : 
+                MemoryManaged("v16.Transactions.Transaction"),
                 context(context),
                 connectorId(connectorId), 
                 txNr(txNr),
@@ -110,6 +124,9 @@ public:
 
     bool setIdTag(const char *idTag);
     const char *getIdTag() {return idTag;}
+
+    bool setParentIdTag(const char *idTag);
+    const char *getParentIdTag() {return parentIdTag;}
 
     void setAuthorized() {authorized = true;}
     void setIdTagDeauthorized() {deauthorized = true;}
@@ -206,7 +223,7 @@ enum class TransactionEventTriggerReason : uint8_t {
     ResetCommand
 };
 
-class Transaction {
+class Transaction : public MemoryManaged {
 public:
 
     // ReasonEnumType (3.67)
@@ -276,10 +293,12 @@ public:
     StopReason stopReason = StopReason::UNDEFINED;
     TransactionEventTriggerReason stopTrigger = TransactionEventTriggerReason::UNDEFINED;
     std::unique_ptr<IdToken> stopIdToken; // if null, then stopIdToken equals idToken
+
+    Transaction() : MemoryManaged("v201.Transactions.Transaction") { }
 };
 
 // TransactionEventRequest (1.60.1)
-class TransactionEventData {
+class TransactionEventData : public MemoryManaged {
 public:
 
     // TransactionEventEnumType (3.80)
@@ -318,7 +337,7 @@ public:
     EvseId evse = -1;
     //meterValue not supported
 
-    TransactionEventData(std::shared_ptr<Transaction> transaction, unsigned int seqNo) : transaction(transaction), seqNo(seqNo) { }
+    TransactionEventData(std::shared_ptr<Transaction> transaction, unsigned int seqNo) : MemoryManaged("v201.Transactions.TransactionEventData"), transaction(transaction), seqNo(seqNo) { }
 };
 
 } // namespace Ocpp201
