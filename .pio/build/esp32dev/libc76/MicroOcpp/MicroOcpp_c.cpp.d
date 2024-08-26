@@ -2,11 +2,16 @@
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp_c.cpp \
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp_c.h \
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/ConfigurationOptions.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/ConnectorBase/ChargePointStatus.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Version.h \
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/ConnectorBase/Notification.h \
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/ConnectorBase/UnlockConnectorResult.h \
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/Transactions/Transaction.h \
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/Time.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Platform.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/Memory.h \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson.h \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Configuration.hpp \
  C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/cores/esp32/Arduino.h \
  C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/cores/esp32/esp_arduino_version.h \
  C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/freertos/include/freertos/FreeRTOS.h \
@@ -141,13 +146,10 @@
  C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/esp_hw_support/include/soc/esp32/spiram.h \
  C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/cores/esp32/io_pin_remap.h \
  C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/cores/esp32/Arduino.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Platform.h \
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Operations/CiStrings.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Version.h \
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/Certificates/Certificate_c.h \
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp.h \
- .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson.h \
- .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson.hpp \
- .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Configuration.hpp \
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/FilesystemAdapter.h \
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/RequestCallbacks.h \
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/Connection.h \

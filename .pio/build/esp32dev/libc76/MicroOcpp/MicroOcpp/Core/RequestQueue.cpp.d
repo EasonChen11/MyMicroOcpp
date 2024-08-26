@@ -1,8 +1,8 @@
 .pio/build/esp32dev/libc76/MicroOcpp/MicroOcpp/Core/RequestQueue.cpp.o: \
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/RequestQueue.cpp \
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/RequestQueue.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/RequestQueueStorageStrategy.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/RequestStore.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/Connection.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/Memory.h \
  .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson.h \
  .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson.hpp \
  .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Configuration.hpp \
@@ -140,9 +140,6 @@
  C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/esp_hw_support/include/soc/esp32/spiram.h \
  C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/cores/esp32/io_pin_remap.h \
  C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/cores/esp32/Arduino.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/Request.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/RequestCallbacks.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/Connection.h \
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Platform.h \
  .pio/libdeps/esp32dev/WebSockets/src/WebSocketsClient.h \
  .pio/libdeps/esp32dev/WebSockets/src/WebSockets.h \
@@ -246,8 +243,14 @@
  C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/mbedtls/port/include/aes/esp_aes.h \
  C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/hal/include/hal/aes_types.h \
  C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/mbedtls/mbedtls/include/mbedtls/error.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/SimpleRequestFactory.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/Request.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/RequestCallbacks.h \
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/OcppError.h \
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/Operation.h \
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/OperationRegistry.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Operations/StatusNotification.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/Time.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/ConnectorBase/ChargePointStatus.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Version.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/ConnectorBase/ChargePointErrorData.h \
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Debug.h

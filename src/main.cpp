@@ -169,7 +169,7 @@ void loop()
     /*
      * Use NFC reader to start and stop transactions
      */
-    if (/* RFID chip detected? */ RFIDTouch.Is_Ready()) // RFID card touched
+    if (/* RFID chip detected? */RFIDTouch.Is_Ready()) // RFID card touched
     {
         String idTag = "ABC"; // e.g. idTag = RFID.readIdTag();
 

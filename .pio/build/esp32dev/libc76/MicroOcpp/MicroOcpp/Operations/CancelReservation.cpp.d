@@ -140,7 +140,7 @@
  C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/esp_hw_support/include/soc/esp32/spiram.h \
  C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/cores/esp32/io_pin_remap.h \
  C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/cores/esp32/Arduino.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/RequestStore.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/Memory.h \
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/Reservation/ReservationService.h \
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/Reservation/Reservation.h \
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/Configuration.h \

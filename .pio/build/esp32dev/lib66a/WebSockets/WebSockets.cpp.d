@@ -236,4 +236,7 @@
  C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/hal/include/hal/aes_types.h \
  C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/mbedtls/mbedtls/include/mbedtls/error.h \
  .pio/libdeps/esp32dev/WebSockets/src/libb64/cencode_inc.h \
- C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/mbedtls/port/include/sha/sha_parallel_engine.h
+ C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/mbedtls/port/include/sha/sha_parallel_engine.h \
+ lib/MyEvent/myevent.h \
+ .pio/libdeps/esp32dev/ESP32\ events/include/events.hpp \
+ lib/IOdevice/LEDOption.h

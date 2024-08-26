@@ -202,6 +202,7 @@
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Platform.h \
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/RequestCallbacks.h \
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/Connection.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/Memory.h \
  .pio/libdeps/esp32dev/WebSockets/src/WebSocketsClient.h \
  .pio/libdeps/esp32dev/WebSockets/src/WebSockets.h \
  .pio/libdeps/esp32dev/WebSockets/src/WebSocketsVersion.h \
@@ -251,6 +252,7 @@
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Version.h \
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/ConnectorBase/Notification.h \
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/ConnectorBase/ChargePointErrorData.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/ConnectorBase/ChargePointStatus.h \
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/ConnectorBase/UnlockConnectorResult.h \
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/Certificates/Certificate.h \
  lib/MyEvent/myevent.h \

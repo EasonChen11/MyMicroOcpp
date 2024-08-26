@@ -138,6 +138,7 @@
  C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/cores/esp32/Arduino.h \
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/ConfigurationOptions.h \
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/FilesystemUtils.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/Memory.h \
  .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson.h \
  .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson.hpp \
  .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Configuration.hpp \

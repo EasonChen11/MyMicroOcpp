@@ -141,33 +141,17 @@
  C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/cores/esp32/Arduino.h \
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/FirmwareManagement/FirmwareStatus.h \
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/Time.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/Memory.h \
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Platform.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/Ftp.h \
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/Context.h \
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/OperationRegistry.h \
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/RequestCallbacks.h \
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/RequestQueue.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/RequestQueueStorageStrategy.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/RequestStore.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/Model.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Version.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/ConnectorBase/Connector.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/ConnectorBase/ChargePointStatus.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/ConnectorBase/ChargePointErrorData.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/ConnectorBase/Notification.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/ConnectorBase/UnlockConnectorResult.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Operations/CiStrings.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/Transactions/Transaction.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/Configuration.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/ConfigurationContainer.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/FilesystemAdapter.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/ConfigurationOptions.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/SimpleRequestFactory.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/Request.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Operations/UpdateFirmware.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/Operation.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Operations/FirmwareStatusNotification.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Debug.h \
- C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/libraries/HTTPUpdate/src/HTTPUpdate.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/Connection.h \
+ .pio/libdeps/esp32dev/WebSockets/src/WebSocketsClient.h \
+ .pio/libdeps/esp32dev/WebSockets/src/WebSockets.h \
+ .pio/libdeps/esp32dev/WebSockets/src/WebSocketsVersion.h \
  C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/libraries/WiFi/src/WiFi.h \
  C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/cores/esp32/Print.h \
  C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/cores/esp32/IPv6Address.h \
@@ -228,9 +212,6 @@
  C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/libraries/WiFi/src/WiFiUdp.h \
  C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/cores/esp32/Udp.h \
  C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/cores/esp32/cbuf.h \
- C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/libraries/WiFi/src/WiFiClient.h \
- C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/libraries/WiFi/src/WiFiUdp.h \
- C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/libraries/HTTPClient/src/HTTPClient.h \
  C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/libraries/WiFiClientSecure/src/WiFiClientSecure.h \
  C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/libraries/WiFiClientSecure/src/ssl_client.h \
  C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/mbedtls/mbedtls/include/mbedtls/platform.h \
@@ -270,6 +251,21 @@
  C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/mbedtls/port/include/aes/esp_aes.h \
  C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/hal/include/hal/aes_types.h \
  C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/mbedtls/mbedtls/include/mbedtls/error.h \
- C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/libraries/Update/src/Update.h \
- C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/cores/esp32/MD5Builder.h \
- C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/esp_rom/include/esp_rom_md5.h
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/Model.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Version.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/ConnectorBase/Connector.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/ConnectorBase/ChargePointStatus.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/ConnectorBase/ChargePointErrorData.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/ConnectorBase/Notification.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/ConnectorBase/UnlockConnectorResult.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/FilesystemAdapter.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/ConfigurationOptions.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Operations/CiStrings.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/Transactions/Transaction.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/Configuration.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/ConfigurationContainer.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/Request.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Operations/UpdateFirmware.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/Operation.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Operations/FirmwareStatusNotification.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Debug.h

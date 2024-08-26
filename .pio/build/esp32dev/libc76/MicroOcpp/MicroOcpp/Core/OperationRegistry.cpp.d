@@ -1,6 +1,7 @@
 .pio/build/esp32dev/libc76/MicroOcpp/MicroOcpp/Core/OperationRegistry.cpp.o: \
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/OperationRegistry.cpp \
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/OperationRegistry.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/Memory.h \
  .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson.h \
  .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson.hpp \
  .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Configuration.hpp \
@@ -140,7 +141,6 @@
  C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/cores/esp32/Arduino.h \
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/RequestCallbacks.h \
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/Operation.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/RequestStore.h \
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/Request.h \
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/OcppError.h \
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Debug.h \

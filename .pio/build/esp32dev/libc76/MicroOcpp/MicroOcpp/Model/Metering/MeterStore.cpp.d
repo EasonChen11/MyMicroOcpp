@@ -3,7 +3,10 @@
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/Metering/MeterStore.h \
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/Metering/MeterValue.h \
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/Time.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Platform.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/Memory.h \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson.h \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Configuration.hpp \
  C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/cores/esp32/Arduino.h \
  C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/cores/esp32/esp_arduino_version.h \
  C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/freertos/include/freertos/FreeRTOS.h \
@@ -138,10 +141,8 @@
  C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/esp_hw_support/include/soc/esp32/spiram.h \
  C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/cores/esp32/io_pin_remap.h \
  C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/cores/esp32/Arduino.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Platform.h \
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/Metering/SampledValue.h \
- .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson.h \
- .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson.hpp \
- .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Configuration.hpp \
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/ConfigurationKeyValue.h \
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/Transactions/Transaction.h \
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Operations/CiStrings.h \

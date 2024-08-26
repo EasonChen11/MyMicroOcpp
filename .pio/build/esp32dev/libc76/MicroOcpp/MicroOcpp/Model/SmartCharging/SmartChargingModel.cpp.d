@@ -139,5 +139,6 @@
  C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/cores/esp32/io_pin_remap.h \
  C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/cores/esp32/Arduino.h \
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/Time.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/Memory.h \
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Platform.h \
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Debug.h

@@ -1,7 +1,10 @@
 .pio/build/esp32dev/libc76/MicroOcpp/MicroOcpp/Core/Connection.cpp.o: \
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/Connection.cpp \
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/Connection.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Platform.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/Memory.h \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson.h \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Configuration.hpp \
  C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/cores/esp32/Arduino.h \
  C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/cores/esp32/esp_arduino_version.h \
  C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/freertos/include/freertos/FreeRTOS.h \
@@ -136,6 +139,7 @@
  C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/esp_hw_support/include/soc/esp32/spiram.h \
  C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/cores/esp32/io_pin_remap.h \
  C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/cores/esp32/Arduino.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Platform.h \
  .pio/libdeps/esp32dev/WebSockets/src/WebSocketsClient.h \
  .pio/libdeps/esp32dev/WebSockets/src/WebSockets.h \
  .pio/libdeps/esp32dev/WebSockets/src/WebSocketsVersion.h \

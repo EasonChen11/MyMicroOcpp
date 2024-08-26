@@ -6,7 +6,9 @@
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/ConnectorBase/ChargePointErrorData.h \
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/ConnectorBase/Notification.h \
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/ConnectorBase/UnlockConnectorResult.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/ConfigurationKeyValue.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/RequestQueue.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/Connection.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/Memory.h \
  .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson.h \
  .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson.hpp \
  .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Configuration.hpp \
@@ -144,43 +146,7 @@
  C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/esp_hw_support/include/soc/esp32/spiram.h \
  C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/cores/esp32/io_pin_remap.h \
  C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/cores/esp32/Arduino.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Operations/CiStrings.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/Context.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/OperationRegistry.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/RequestCallbacks.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/RequestQueue.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/RequestQueueStorageStrategy.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/RequestStore.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/Model.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/Time.h \
  .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Platform.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/Request.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/Transactions/TransactionStore.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/Transactions/Transaction.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/Configuration.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/ConfigurationContainer.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/FilesystemAdapter.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/ConfigurationOptions.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Operations/Authorize.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/Operation.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Operations/StatusNotification.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Operations/StartTransaction.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/Metering/SampledValue.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Operations/StopTransaction.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Debug.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/Metering/MeteringService.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/Metering/MeteringConnector.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/Metering/MeterValue.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/Metering/MeterStore.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/Reservation/ReservationService.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/Reservation/Reservation.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/Authorization/AuthorizationService.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/Authorization/AuthorizationList.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/Authorization/AuthorizationData.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/ConnectorBase/EvseId.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/Transactions/TransactionService.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/SimpleRequestFactory.h \
- .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/Connection.h \
  .pio/libdeps/esp32dev/WebSockets/src/WebSocketsClient.h \
  .pio/libdeps/esp32dev/WebSockets/src/WebSockets.h \
  .pio/libdeps/esp32dev/WebSockets/src/WebSocketsVersion.h \
@@ -282,4 +248,37 @@
  C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/mbedtls/port/include/aes_alt.h \
  C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/mbedtls/port/include/aes/esp_aes.h \
  C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/hal/include/hal/aes_types.h \
- C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/mbedtls/mbedtls/include/mbedtls/error.h
+ C:/Users/ysche/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/mbedtls/mbedtls/include/mbedtls/error.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/ConfigurationKeyValue.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/FilesystemAdapter.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/ConfigurationOptions.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Operations/CiStrings.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/Context.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/OperationRegistry.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/RequestCallbacks.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/Ftp.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/Model.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/Time.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/Request.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/Transactions/TransactionStore.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/Transactions/Transaction.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/Configuration.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/ConfigurationContainer.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Operations/Authorize.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Core/Operation.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Operations/StatusNotification.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Operations/StartTransaction.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/Metering/SampledValue.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Operations/StopTransaction.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Debug.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/Metering/MeteringService.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/Metering/MeteringConnector.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/Metering/MeterValue.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/Metering/MeterStore.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/Reservation/ReservationService.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/Reservation/Reservation.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/Authorization/AuthorizationService.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/Authorization/AuthorizationList.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/Authorization/AuthorizationData.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/ConnectorBase/EvseId.h \
+ .pio/libdeps/esp32dev/MicroOcpp/src/MicroOcpp/Model/Transactions/TransactionService.h
