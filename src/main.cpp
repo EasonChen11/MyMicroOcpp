@@ -228,8 +228,8 @@ void loop()
         {
             // no RFID card detected. Stop transaction if it is active
             Serial.println(F("[main] End transaction by removing RFID card"));
-            endTransaction(getTransaction()->getIdTag());
-            RFIDstate = RFID_IDLE;
+            // endTransaction(getTransaction()->getIdTag());
+            // RFIDstate = RFID_IDLE;
         }
         else if (RFIDstate == RFID_FIRST_TOUCHED)
         {
