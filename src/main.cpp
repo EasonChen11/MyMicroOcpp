@@ -132,13 +132,13 @@ return energyMeter; });
         Serial.printf("[main] Smart Charging allows maximum charge rate: %.0f\n", limit); });
     setConnectorPluggedInput([]()
                              // return true if an EV is plugged to this EVSE
-                             { return connectorPlugged.Is_Ready(); });
+                             {return true; return connectorPlugged.Is_Ready(); });
     setEvReadyInput([]()
                     // return true if the EV is ready to charge
-                    { return evReady.Is_Ready(); });
+                    {return true; return evReady.Is_Ready(); });
     setEvseReadyInput([]()
                       // return true if the EVSE is ready to charge
-                      { return evseReady.Is_Ready(); });
+                      {return true; return evseReady.Is_Ready(); });
     //... see MicroOcpp.h for more settings
 }
 
@@ -169,9 +169,9 @@ void loop()
     /*
      * Use NFC reader to start and stop transactions
      */
-    if (/* RFID chip detected? */RFIDTouch.Is_Ready()) // RFID card touched
+    if (/* RFID chip detected? */ RFIDTouch.Is_Ready()) // RFID card touched
     {
-        String idTag = "ABC"; // e.g. idTag = RFID.readIdTag();
+        String idTag = "AC"; // e.g. idTag = RFID.readIdTag();
 
         if (!getTransaction() && RFIDstate == RFID_IDLE)
         {
@@ -210,12 +210,12 @@ void loop()
                     // card matches -> user can stop Tx
                     Serial.println(F("[main] End transaction by RFID card"));
                     endTransaction(idTag.c_str());
-                    endTransaction(getTransaction()->getIdTag());
                     if (RFIDstate == RFID_FIRST_TOUCHED_IDLE)
                         RFIDstate = RFID_SECOND_TOUCHED;
                 }
                 else
                 {
+                    // Serial.printf("[main] isActive %d, isRunning %d\n", isTransactionActive(), isTransactionRunning());
                     Serial.println(F("[main] Cannot end transaction by RFID card (different card?)"));
                 }
         }
@@ -224,7 +224,13 @@ void loop()
     {
         if (RFIDstate == RFID_FIRST_TOUCHED)
         {
-            RFIDstate = RFID_FIRST_TOUCHED_IDLE;
+            if (!(isTransactionActive() || isTransactionRunning()))
+            {
+                Serial.println(F("[main] No transaction running. Reset RFID state"));
+                RFIDstate = RFID_IDLE;
+            }
+            else
+                RFIDstate = RFID_FIRST_TOUCHED_IDLE;
         }
         else if (RFIDstate == RFID_SECOND_TOUCHED)
         {
