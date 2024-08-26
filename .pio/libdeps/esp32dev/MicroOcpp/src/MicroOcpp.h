@@ -4,6 +4,7 @@
 
 #ifndef MO_MICROOCPP_H
 #define MO_MICROOCPP_H
+
 #include <ArduinoJson.h>
 #include <memory>
 #include <functional>
@@ -12,10 +13,12 @@
 #include <MicroOcpp/Core/FilesystemAdapter.h>
 #include <MicroOcpp/Core/RequestCallbacks.h>
 #include <MicroOcpp/Core/Connection.h>
+#include <MicroOcpp/Core/Memory.h>
 #include <MicroOcpp/Model/Metering/SampledValue.h>
 #include <MicroOcpp/Model/Transactions/Transaction.h>
 #include <MicroOcpp/Model/ConnectorBase/Notification.h>
 #include <MicroOcpp/Model/ConnectorBase/ChargePointErrorData.h>
+#include <MicroOcpp/Model/ConnectorBase/ChargePointStatus.h>
 #include <MicroOcpp/Model/ConnectorBase/UnlockConnectorResult.h>
 #include <MicroOcpp/Version.h>
 #include <MicroOcpp/Model/Certificates/Certificate.h>
@@ -107,23 +110,21 @@ private:
 
 #if MO_ENABLE_V201
 void mocpp_initialize(
-    MicroOcpp::Connection &connection, // WebSocket adapter for MicroOcpp
+    MicroOcpp::Connection &connection,                                                                     // WebSocket adapter for MicroOcpp
     const char *bootNotificationCredentials = ChargerCredentials::v201("Demo Charger", "My Company Ltd."), // e.g. '{"chargePointModel":"Demo Charger","chargePointVendor":"My Company Ltd."}' (refer to OCPP 1.6 Specification - Edition 2 p. 60)
     std::shared_ptr<MicroOcpp::FilesystemAdapter> filesystem =
-    MicroOcpp::makeDefaultFilesystemAdapter(MicroOcpp::FilesystemOpt::Use_Mount_FormatOnFail), // If this library should format the flash if necessary. Find further options in ConfigurationOptions.h
+        MicroOcpp::makeDefaultFilesystemAdapter(MicroOcpp::FilesystemOpt::Use_Mount_FormatOnFail), // If this library should format the flash if necessary. Find further options in ConfigurationOptions.h
     bool autoRecover = false,                                                                      // automatically sanitize the local data store when the lib detects recurring crashes. Not recommended during development
     MicroOcpp::ProtocolVersion version = MicroOcpp::ProtocolVersion(2, 0, 1));
 #else
 void mocpp_initialize(
-    MicroOcpp::Connection &connection, // WebSocket adapter for MicroOcpp
+    MicroOcpp::Connection &connection,                                                               // WebSocket adapter for MicroOcpp
     const char *bootNotificationCredentials = ChargerCredentials("Demo Charger", "My Company Ltd."), // e.g. '{"chargePointModel":"Demo Charger","chargePointVendor":"My Company Ltd."}' (refer to OCPP 1.6 Specification - Edition 2 p. 60)
     std::shared_ptr<MicroOcpp::FilesystemAdapter> filesystem =
-    MicroOcpp::makeDefaultFilesystemAdapter(MicroOcpp::FilesystemOpt::Use_Mount_FormatOnFail), // If this library should format the flash if necessary. Find further options in ConfigurationOptions.h
+        MicroOcpp::makeDefaultFilesystemAdapter(MicroOcpp::FilesystemOpt::Use_Mount_FormatOnFail), // If this library should format the flash if necessary. Find further options in ConfigurationOptions.h
     bool autoRecover = false,                                                                      // automatically sanitize the local data store when the lib detects recurring crashes. Not recommended during development
-    MicroOcpp::ProtocolVersion version = MicroOcpp::ProtocolVersion(1,6));
+    MicroOcpp::ProtocolVersion version = MicroOcpp::ProtocolVersion(1, 6));
 #endif
-
-
 
 /*
  * Stop the OCPP library and release allocated resources.
@@ -258,6 +259,11 @@ std::shared_ptr<MicroOcpp::Transaction> &getTransaction(unsigned int connectorId
 bool ocppPermitsCharge(unsigned int connectorId = 1);
 
 /*
+ * Returns the latest ChargePointStatus as reported via StatusNotification (standard OCPP data type)
+ */
+ChargePointStatus getChargePointStatus(unsigned int connectorId = 1);
+
+/*
  * Define the Inputs and Outputs of this library.
  *
  * This library interacts with the hardware of your charger by Inputs and Outputs. Inputs and Outputs
@@ -283,8 +289,10 @@ void setEnergyMeterInput(std::function<int()> energyInput, unsigned int connecto
 
 void setPowerMeterInput(std::function<float()> powerInput, unsigned int connectorId = 1); // Input of the power meter reading in W
 
-// Smart Charging Output, alternative for Watts only, Current only, or Watts x Current x numberPhases. Only one
-// of them can be set at a time
+// Smart Charging Output, alternative for Watts only, Current only, or Watts x Current x numberPhases.
+// Only one of the Smart Charging Outputs can be set at a time.
+// MO will execute the callback whenever the OCPP charging limit changes and will pass the limit for now
+// to the callback. If OCPP does not define a limit, then MO passes the value -1 for "undefined".
 void setSmartChargingPowerOutput(std::function<void(float)> chargingLimitOutput, unsigned int connectorId = 1);        // Output (in Watts) for the Smart Charging limit
 void setSmartChargingCurrentOutput(std::function<void(float)> chargingLimitOutput, unsigned int connectorId = 1);      // Output (in Amps) for the Smart Charging limit
 void setSmartChargingOutput(std::function<void(float, float, int)> chargingLimitOutput, unsigned int connectorId = 1); // Output (in Watts, Amps, numberPhases) for the Smart Charging limit
@@ -314,15 +322,17 @@ void setStopTxReadyInput(std::function<bool()> stopTxReady, unsigned int connect
 
 void setTxNotificationOutput(std::function<void(MicroOcpp::Transaction *, MicroOcpp::TxNotification)> notificationOutput, unsigned int connectorId = 1); // called when transaction state changes (see TxNotification for possible events). Transaction can be null
 
+#if MO_ENABLE_CONNECTOR_LOCK
 /*
  * Set an InputOutput (reads and sets information at the same time) for forcing to unlock the
  * connector. Called as part of the OCPP operation "UnlockConnector"
  * Return values:
- *     - UnlockConnectorResult_Pending if action needs more time to complete (MO will call this cb again later or eventually timeout)
+ *     - UnlockConnectorResult_Pending if action needs more time to complete (MO will call this cb again later or eventually time out)
  *     - UnlockConnectorResult_Unlocked if successful
  *     - UnlockConnectorResult_UnlockFailed if not successful (e.g. lock stuck)
  */
 void setOnUnlockConnectorInOut(std::function<UnlockConnectorResult()> onUnlockConnectorInOut, unsigned int connectorId = 1);
+#endif // MO_ENABLE_CONNECTOR_LOCK
 
 /*
  * Access further information about the internal state of the library
@@ -440,11 +450,11 @@ void setOnSendConf(const char *operationType, OnSendConfListener onSendConf);
  *
  * Use case 1, extend the library by sending additional operations. E.g. DataTransfer:
  *
- * sendRequest("DataTransfer", [] () -> std::unique_ptr<DynamicJsonDocument> {
+ * sendRequest("DataTransfer", [] () -> std::unique_ptr<MicroOcpp::JsonDoc> {
  *     //will be called to create the request once this operation is being sent out
  *     size_t capacity = JSON_OBJECT_SIZE(3) +
  *                       JSON_OBJECT_SIZE(2); //for calculating the required capacity, see https://arduinojson.org/v6/assistant/
- *     auto res = std::unique_ptr<DynamicJsonDocument>(new DynamicJsonDocument(capacity));
+ *     auto res = std::unique_ptr<MicroOcpp::JsonDoc>(new MicroOcpp::JsonDoc(capacity));
  *     JsonObject request = *res;
  *     request["vendorId"] = "My company Ltd.";
  *     request["messageId"] = "TargetValues";
@@ -461,10 +471,10 @@ void setOnSendConf(const char *operationType, OnSendConfListener onSendConf);
  *
  * Use case 2, bypass the business logic of this library for custom behavior. E.g. StartTransaction:
  *
- * sendRequest("StartTransaction", [] () -> std::unique_ptr<DynamicJsonDocument> {
+ * sendRequest("StartTransaction", [] () -> std::unique_ptr<MicroOcpp::JsonDoc> {
  *     //will be called to create the request once this operation is being sent out
  *     size_t capacity = JSON_OBJECT_SIZE(4); //for calculating the required capacity, see https://arduinojson.org/v6/assistant/
- *     auto res = std::unique_ptr<DynamicJsonDocument>(new DynamicJsonDocument(capacity));
+ *     auto res = std::unique_ptr<MicroOcpp::JsonDoc>(new MicroOcpp::JsonDoc(capacity));
  *     JsonObject request = res->to<JsonObject>();
  *     request["connectorId"] = 1;
  *     request["idTag"] = "A9C3CE1D7B71EA";
@@ -481,7 +491,7 @@ void setOnSendConf(const char *operationType, OnSendConfListener onSendConf);
  * its own.
  */
 void sendRequest(const char *operationType,
-                 std::function<std::unique_ptr<DynamicJsonDocument>()> fn_createReq,
+                 std::function<std::unique_ptr<MicroOcpp::JsonDoc>()> fn_createReq,
                  std::function<void(JsonObject)> fn_processConf);
 
 /*
@@ -499,11 +509,11 @@ void sendRequest(const char *operationType,
  *     const char *messageId = request["messageId"];
  *     int battery_capacity = request["data"]["battery_capacity"];
  *     int battery_soc = request["data"]["battery_soc"];
- * }, [] () -> std::unique_ptr<DynamicJsonDocument> {
+ * }, [] () -> std::unique_ptr<MicroOcpp::JsonDoc> {
  *     //will be called  to create the response once this operation is being sent out
  *     size_t capacity = JSON_OBJECT_SIZE(2) +
  *                       JSON_OBJECT_SIZE(1); //for calculating the required capacity, see https://arduinojson.org/v6/assistant/
- *     auto res = std::unique_ptr<DynamicJsonDocument>(new DynamicJsonDocument(capacity));
+ *     auto res = std::unique_ptr<MicroOcpp::JsonDoc>(new MicroOcpp::JsonDoc(capacity));
  *     JsonObject response = res->to<JsonObject>();
  *     response["status"] = "Accepted";
  *     response["data"]["max_energy"] = 59;
@@ -512,7 +522,7 @@ void sendRequest(const char *operationType,
  */
 void setRequestHandler(const char *operationType,
                        std::function<void(JsonObject)> fn_processReq,
-                       std::function<std::unique_ptr<DynamicJsonDocument>()> fn_createConf);
+                       std::function<std::unique_ptr<MicroOcpp::JsonDoc>()> fn_createConf);
 
 /*
  * Send OCPP operations manually not bypassing the internal business logic

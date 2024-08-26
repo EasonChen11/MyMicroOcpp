@@ -25,6 +25,10 @@
 #include <MicroOcpp/Core/OperationRegistry.h>
 #include <MicroOcpp/Core/FilesystemAdapter.h>
 #include <MicroOcpp/Core/FilesystemUtils.h>
+#include <MicroOcpp/Core/Ftp.h>
+#include <MicroOcpp/Core/FtpMbedTLS.h>
+#include <MicroOcpp/Core/Ftp.h>
+#include <MicroOcpp/Core/FtpMbedTLS.h>
 
 #include <MicroOcpp/Operations/Authorize.h>
 #include <MicroOcpp/Operations/StartTransaction.h>
@@ -39,11 +43,11 @@ namespace MicroOcpp
     {
 
 #ifndef MO_CUSTOM_WS
-WebSocketsClient *webSocket {nullptr};
-Connection *connection {nullptr};
+        WebSocketsClient *webSocket{nullptr};
+        Connection *connection{nullptr};
 #endif
 
-Context *context {nullptr};
+        Context *context{nullptr};
         std::shared_ptr<FilesystemAdapter> filesystem;
 
 #ifndef MO_NUMCONNECTORS
@@ -53,60 +57,77 @@ Context *context {nullptr};
 #define OCPP_ID_OF_CP 0
 #define OCPP_ID_OF_CONNECTOR 1
 
-} //end namespace MicroOcpp::Facade
-} //end namespace MicroOcpp
+    } // end namespace MicroOcpp::Facade
+} // end namespace MicroOcpp
+
+#if MO_ENABLE_HEAP_PROFILER
+#ifndef MO_HEAP_PROFILER_EXTERNAL_CONTROL
+#define MO_HEAP_PROFILER_EXTERNAL_CONTROL 0 // enable if you want to manually reset the heap profiler (e.g. for keeping stats over multiple MO lifecycles)
+#endif
+#endif
 
 using namespace MicroOcpp;
 using namespace MicroOcpp::Facade;
 using namespace MicroOcpp::Ocpp16;
 
 #ifndef MO_CUSTOM_WS
-void mocpp_initialize(const char *backendUrl, const char *chargeBoxId, const char *chargePointModel, const char *chargePointVendor, FilesystemOpt fsOpt, const char *password, const char *CA_cert, bool autoRecover) {
-    if (context) {
+void mocpp_initialize(const char *backendUrl, const char *chargeBoxId, const char *chargePointModel, const char *chargePointVendor, FilesystemOpt fsOpt, const char *password, const char *CA_cert, bool autoRecover)
+{
+    if (context)
+    {
         MO_DBG_WARN("already initialized. To reinit, call mocpp_deinitialize() before");
         return;
     }
 
-    if (!backendUrl || !chargePointModel || !chargePointVendor) {
+    if (!backendUrl || !chargePointModel || !chargePointVendor)
+    {
         MO_DBG_ERR("invalid args");
         return;
     }
 
-    if (!chargeBoxId) {
+    if (!chargeBoxId)
+    {
         chargeBoxId = "";
     }
 
     /*
      * parse backendUrl so that it suits the links2004/arduinoWebSockets interface
      */
-    std::string url = backendUrl;
+    auto url = makeString("MicroOcpp.cpp", backendUrl);
 
-    //tolower protocol specifier
-    for (auto c = url.begin(); *c != ':' && c != url.end(); c++) {
+    // tolower protocol specifier
+    for (auto c = url.begin(); *c != ':' && c != url.end(); c++)
+    {
         *c = tolower(*c);
     }
 
     bool isTLS = true;
-    if (!strncmp(url.c_str(),"wss://",strlen("wss://"))) {
+    if (!strncmp(url.c_str(), "wss://", strlen("wss://")))
+    {
         isTLS = true;
-    } else if (!strncmp(url.c_str(),"ws://",strlen("ws://"))) {
+    }
+    else if (!strncmp(url.c_str(), "ws://", strlen("ws://")))
+    {
         isTLS = false;
-    } else {
+    }
+    else
+    {
         MO_DBG_ERR("only ws:// and wss:// supported");
         return;
     }
 
-    //parse host, port
-    std::string host_port_path = url.substr(url.find_first_of("://") + strlen("://"));
-    std::string host_port = host_port_path.substr(0, host_port_path.find_first_of('/'));
-    std::string path = host_port_path.substr(host_port.length());
-    std::string host = host_port.substr(0, host_port.find_first_of(':'));
-    if (host.empty()) {
+    // parse host, port
+    auto host_port_path = url.substr(url.find_first_of("://") + strlen("://"));
+    auto host_port = host_port_path.substr(0, host_port_path.find_first_of('/'));
+    auto path = host_port_path.substr(host_port.length());
+    auto host = host_port.substr(0, host_port.find_first_of(':'));
+    if (host.empty())
+    {
         MO_DBG_ERR("could not parse host: %s", url.c_str());
         return;
     }
     uint16_t port = 0;
-    std::string port_str = host_port.substr(host.length());
+    auto port_str = host_port.substr(host.length());
     if (port_str.empty())
     {
         port = isTLS ? 443U : 80U;
@@ -289,20 +310,11 @@ void mocpp_initialize(Connection &connection, const char *bootNotificationCreden
 
     if (autoRecover && bootstats.getBootFailureCount() > 3)
     {
-        MO_DBG_ERR("multiple initialization failures detected");
-        if (filesystem)
-        {
-            bool success = FilesystemUtils::remove_if(filesystem, [](const char *fname) -> bool
-                                                      { return !strncmp(fname, "sd", strlen("sd")) ||
-                                                               !strncmp(fname, "tx", strlen("tx")) ||
-                                                               !strncmp(fname, "op", strlen("op")) ||
-                                                               !strncmp(fname, "sc-", strlen("sc-")) ||
-                                                               !strncmp(fname, "reservation", strlen("reservation")); });
-            MO_DBG_ERR("clear local state files (recovery): %s", success ? "success" : "not completed");
-
-            bootstats = BootStats();
-        }
+        BootService::recover(filesystem, bootstats);
+        bootstats = BootStats();
     }
+
+    BootService::migrate(filesystem, bootstats);
 
     bootstats.bootNr++; // assign new boot number to this run
     BootService::storeBootStats(filesystem, bootstats);
@@ -310,6 +322,11 @@ void mocpp_initialize(Connection &connection, const char *bootNotificationCreden
     configuration_init(filesystem); // call before each other library call
 
     context = new Context(connection, filesystem, bootstats.bootNr, version);
+
+#if MO_ENABLE_MBEDTLS
+    context->setFtpClient(makeFtpClientMbedTLS());
+#endif // MO_ENABLE_MBEDTLS
+
     auto &model = context->getModel();
 
     model.setTransactionStore(std::unique_ptr<TransactionStore>(
@@ -318,10 +335,10 @@ void mocpp_initialize(Connection &connection, const char *bootNotificationCreden
         new BootService(*context, filesystem)));
     model.setConnectorsCommon(std::unique_ptr<ConnectorsCommon>(
         new ConnectorsCommon(*context, MO_NUMCONNECTORS, filesystem)));
-    std::vector<std::unique_ptr<Connector>> connectors;
+    auto connectors = makeVector<std::unique_ptr<Connector>>("v16.ConnectorBase.Connector");
     for (unsigned int connectorId = 0; connectorId < MO_NUMCONNECTORS; connectorId++)
     {
-        connectors.emplace_back(new Connector(*context, connectorId));
+        connectors.emplace_back(new Connector(*context, filesystem, connectorId));
     }
     model.setConnectors(std::move(connectors));
     model.setHeartbeatService(std::unique_ptr<HeartbeatService>(
@@ -371,12 +388,25 @@ void mocpp_initialize(Connection &connection, const char *bootNotificationCreden
             new ResetService(*context)));
     }
 
-#if MO_PLATFORM == MO_PLATFORM_ARDUINO && !defined(MO_CUSTOM_UPDATER)
-#if defined(ESP32) || defined(ESP8266)
-    model.setFirmwareService(std::unique_ptr<FirmwareService>(
-        makeDefaultFirmwareService(*context))); // instantiate FW service + ESP installation routine
-#endif                                          // defined(ESP32) || defined(ESP8266)
-#endif                                          // MO_PLATFORM == MO_PLATFORM_ARDUINO && !defined(MO_CUSTOM_UPDATER)
+#if !defined(MO_CUSTOM_UPDATER)
+#if MO_PLATFORM == MO_PLATFORM_ARDUINO && defined(ESP32) && MO_ENABLE_MBEDTLS
+    model.setFirmwareService(
+        makeDefaultFirmwareService(*context)); // instantiate FW service + ESP installation routine
+#elif MO_PLATFORM == MO_PLATFORM_ARDUINO && defined(ESP8266)
+    model.setFirmwareService(
+        makeDefaultFirmwareService(*context)); // instantiate FW service + ESP installation routine
+#endif // MO_PLATFORM
+#endif //! defined(MO_CUSTOM_UPDATER)
+
+#if !defined(MO_CUSTOM_DIAGNOSTICS)
+#if MO_PLATFORM == MO_PLATFORM_ARDUINO && defined(ESP32) && MO_ENABLE_MBEDTLS
+    model.setDiagnosticsService(
+        makeDefaultDiagnosticsService(*context, filesystem)); // instantiate Diag service + ESP hardware diagnostics
+#elif MO_ENABLE_MBEDTLS
+    model.setDiagnosticsService(
+        makeDefaultDiagnosticsService(*context, filesystem)); // instantiate Diag service
+#endif // MO_PLATFORM
+#endif //! defined(MO_CUSTOM_DIAGNOSTICS)
 
 #if MO_PLATFORM == MO_PLATFORM_ARDUINO && (defined(ESP32) || defined(ESP8266))
     setOnResetExecute(makeDefaultResetFn());
@@ -391,14 +421,8 @@ void mocpp_initialize(Connection &connection, const char *bootNotificationCreden
     }
     credsJson.reset();
 
-    auto mocppVersion = declareConfiguration<const char *>("MicroOcppVersion", MO_VERSION, MO_KEYVALUE_FN, false, false, false);
-
     configuration_load();
 
-    if (mocppVersion)
-    {
-        mocppVersion->setString(MO_VERSION);
-    }
     MO_DBG_INFO("initialized MicroOcpp v" MO_VERSION);
 }
 
@@ -431,6 +455,10 @@ void mocpp_deinitialize()
     filesystem.reset();
 
     configuration_deinit();
+
+#if !MO_HEAP_PROFILER_EXTERNAL_CONTROL
+    MO_MEM_DEINIT();
+#endif
 
     MO_DBG_DEBUG("deinitialized OCPP\n");
 }
@@ -508,7 +536,52 @@ bool endTransaction(const char *idTag, const char *reason, unsigned int connecto
         }
         else
         {
-            MO_DBG_INFO("endTransaction: idTag doesn't match");
+            auto tx = getTransaction(connectorId);
+            const char *parentIdTag = tx->getParentIdTag();
+            if (strlen(parentIdTag) > 0)
+            {
+                // We have a parent ID tag, so we need to check if this new card also has one
+                auto authorize = makeRequest(new Ocpp16::Authorize(context->getModel(), idTag));
+                auto idTag_capture = makeString("MicroOcpp.cpp", idTag);
+                auto reason_capture = makeString("MicroOcpp.cpp", reason ? reason : "");
+                authorize->setOnReceiveConfListener([idTag_capture, reason_capture, connectorId, tx](JsonObject response)
+                                                    {
+                    JsonObject idTagInfo = response["idTagInfo"];
+
+                    if (strcmp("Accepted", idTagInfo["status"] | "UNDEFINED")) {
+                        //Authorization rejected, do nothing
+                        MO_DBG_DEBUG("Authorize rejected (%s), continue transaction", idTag_capture.c_str());
+                        auto connector = context->getModel().getConnector(connectorId);
+                        if (connector) {
+                            connector->updateTxNotification(TxNotification::AuthorizationRejected);
+                        }
+                        return;
+                    }
+                    if (idTagInfo.containsKey("parentIdTag") && !strcmp(idTagInfo["parenIdTag"], tx->getParentIdTag()))
+                    {
+                        endTransaction_authorized(idTag_capture.c_str(), reason_capture.empty() ? (const char*)nullptr : reason_capture.c_str(), connectorId);
+                    } });
+
+                authorize->setOnTimeoutListener([idTag_capture, connectorId]()
+                                                {
+                    //Authorization timed out, do nothing
+                    MO_DBG_DEBUG("Authorization timeout (%s), continue transaction", idTag_capture.c_str());
+                    auto connector = context->getModel().getConnector(connectorId);
+                    if (connector) {
+                        connector->updateTxNotification(TxNotification::AuthorizationTimeout);
+                    } });
+
+                auto authorizationTimeoutInt = declareConfiguration<int>(MO_CONFIG_EXT_PREFIX "AuthorizationTimeout", 20);
+                authorize->setTimeout(authorizationTimeoutInt && authorizationTimeoutInt->getInt() > 0 ? authorizationTimeoutInt->getInt() * 1000UL : 20UL * 1000UL);
+
+                context->initiateRequest(std::move(authorize));
+                res = true;
+            }
+            else
+            {
+                MO_DBG_INFO("endTransaction: idTag doesn't match");
+                (void)0;
+            }
         }
     }
     return res;
@@ -631,6 +704,22 @@ bool ocppPermitsCharge(unsigned int connectorId)
         return false;
     }
     return connector->ocppPermitsCharge();
+}
+
+ChargePointStatus getChargePointStatus(unsigned int connectorId)
+{
+    if (!context)
+    {
+        MO_DBG_WARN("OCPP uninitialized");
+        return ChargePointStatus_UNDEFINED;
+    }
+    auto connector = context->getModel().getConnector(connectorId);
+    if (!connector)
+    {
+        MO_DBG_ERR("could not find connector");
+        return ChargePointStatus_UNDEFINED;
+    }
+    return connector->getStatus();
 }
 
 void setConnectorPluggedInput(std::function<bool()> pluggedInput, unsigned int connectorId)
@@ -1022,6 +1111,7 @@ void setTxNotificationOutput(std::function<void(MicroOcpp::Transaction *, MicroO
     connector->setTxNotificationOutput(notificationOutput);
 }
 
+#if MO_ENABLE_CONNECTOR_LOCK
 void setOnUnlockConnectorInOut(std::function<UnlockConnectorResult()> onUnlockConnectorInOut, unsigned int connectorId)
 {
     if (!context)
@@ -1037,6 +1127,7 @@ void setOnUnlockConnectorInOut(std::function<UnlockConnectorResult()> onUnlockCo
     }
     connector->setOnUnlockConnector(onUnlockConnectorInOut);
 }
+#endif // MO_ENABLE_CONNECTOR_LOCK
 
 bool isOperative(unsigned int connectorId)
 {
@@ -1207,7 +1298,7 @@ void setOnSendConf(const char *operationType, OnSendConfListener onSendConf)
 }
 
 void sendRequest(const char *operationType,
-                 std::function<std::unique_ptr<DynamicJsonDocument>()> fn_createReq,
+                 std::function<std::unique_ptr<JsonDoc>()> fn_createReq,
                  std::function<void(JsonObject)> fn_processConf)
 {
 
@@ -1228,7 +1319,7 @@ void sendRequest(const char *operationType,
 
 void setRequestHandler(const char *operationType,
                        std::function<void(JsonObject)> fn_processReq,
-                       std::function<std::unique_ptr<DynamicJsonDocument>()> fn_createConf)
+                       std::function<std::unique_ptr<JsonDoc>()> fn_createConf)
 {
 
     if (!context)
@@ -1242,7 +1333,7 @@ void setRequestHandler(const char *operationType,
         return;
     }
 
-    std::string captureOpType = operationType;
+    auto captureOpType = makeString("MicroOcpp.cpp", operationType);
 
     context->getOperationRegistry().registerOperation(operationType, [captureOpType, fn_processReq, fn_createConf]()
                                                       { return new CustomOperation(captureOpType.c_str(), fn_processReq, fn_createConf); });
