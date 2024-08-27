@@ -12,10 +12,9 @@
 .vscode/c_cpp_properties.json
 .vscode/launch.json
 .vscode/ipch
-.pio/build/esp32dev/libc76/MicroOcpp/MicroOcpp_c.cpp.o
-.pio/build/esp32dev/src/main.cpp.o
+.pio/**/*.cpp.o
+.pio/**/*.cpp.d
 .pio/build/esp32dev/.sconsign311.dblite
 .pio/build/esp32dev/firmware.map
 .pio/build/esp32dev/firmware.elf
 .pio/build/esp32dev/libc76/libMicroOcpp.a
-.pio/build/esp32dev/libc76/MicroOcpp/MicroOcpp.cpp.o
