@@ -2,11 +2,12 @@
 .vscode/c_cpp_properties.json
 .vscode/launch.json
 .vscode/ipch
-.pio/build
-.pio/libdeps/esp32dev/ArduinoJson@6.20.1
-.pio/libdeps/esp32dev/ArduinoJson
-.pio/libdeps/esp32dev/Unity
-.pio/libdeps/esp32dev/ESP32 events
-.pio/libdeps/esp32dev/integrity.dat
-.pio/libdeps/esp32dev/WebSockets
-!.pio/libdeps/esp32dev/WebSockets/src/WebSockets.cpp
+.pio
+# .pio/build
+# .pio/libdeps/esp32dev/ArduinoJson@6.20.1
+# .pio/libdeps/esp32dev/ArduinoJson
+# .pio/libdeps/esp32dev/Unity
+# .pio/libdeps/esp32dev/ESP32 events
+# .pio/libdeps/esp32dev/integrity.dat
+# .pio/libdeps/esp32dev/WebSockets
+# !.pio/libdeps/esp32dev/WebSockets/src/WebSockets.cpp
