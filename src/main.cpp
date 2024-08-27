@@ -19,7 +19,7 @@ ESP8266WiFiMulti WiFiMulti;
 #define STASSID "TCEJ-Home"
 #define STAPSK "22435503"
 
-#define OCPP_BACKEND_URL "ws://192.168.0.166:8180/steve/websocket/CentralSystemService/" //"ws://192.168.0.166:9000" //"ws://echo.websocket.events"
+#define OCPP_BACKEND_URL "ws://192.168.0.166:9000"//"ws://192.168.0.166:8180/steve/websocket/CentralSystemService/" //"" //"ws://echo.websocket.events"
 #define OCPP_CHARGE_BOX_ID "CP_1"
 
 //
@@ -169,9 +169,9 @@ void loop()
     /*
      * Use NFC reader to start and stop transactions
      */
-    if (/* RFID chip detected? */ RFIDTouch.Is_Ready()) // RFID card touched
+    if (/* RFID chip detected? */ true)//RFIDTouch.Is_Ready()) // RFID card touched
     {
-        String idTag = "AC"; // e.g. idTag = RFID.readIdTag();
+        String idTag = "ABC"; // e.g. idTag = RFID.readIdTag();
 
         if (!getTransaction() && RFIDstate == RFID_IDLE)
         {

@@ -1,21 +1,13 @@
-.pio/libdeps/esp32dev/ArduinoJson
-.pio/libdeps/esp32dev/ArduinoJson@6.20.1
-.pio/libdeps/esp32dev/ESP32 events
-.pio/libdeps/esp32dev/Unity
-.pio/libdeps/esp32dev/Unity@2.5.0
-.pio/libdeps/esp32dev/WebSockets
-.pio/libdeps/esp32dev/integrity.dat
-.pio/libdeps/esp32dev/MicroOcpp/docs
-.pio/libdeps/esp32dev/MicroOcpp/examples
-.pio/build
 .vscode/.browse.c_cpp.db*
 .vscode/c_cpp_properties.json
 .vscode/launch.json
 .vscode/ipch
-.pio/build/esp32dev/libc76/MicroOcpp/MicroOcpp_c.cpp.o
-.pio/build/esp32dev/src/main.cpp.o
-.pio/build/esp32dev/.sconsign311.dblite
-.pio/build/esp32dev/firmware.map
-.pio/build/esp32dev/firmware.elf
-.pio/build/esp32dev/libc76/libMicroOcpp.a
-.pio/build/esp32dev/libc76/MicroOcpp/MicroOcpp.cpp.o
+.pio
+# .pio/build
+# .pio/libdeps/esp32dev/ArduinoJson@6.20.1
+# .pio/libdeps/esp32dev/ArduinoJson
+# .pio/libdeps/esp32dev/Unity
+# .pio/libdeps/esp32dev/ESP32 events
+# .pio/libdeps/esp32dev/integrity.dat
+# .pio/libdeps/esp32dev/WebSockets
+# !.pio/libdeps/esp32dev/WebSockets/src/WebSockets.cpp
