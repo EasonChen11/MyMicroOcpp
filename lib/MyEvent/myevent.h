@@ -8,18 +8,23 @@ namespace esp32m
     class HeartBeatEvent : public Event
     {
     public:
-        // 使用默认的 LED 引脚
+        // use the constructor to set the LED pin
         HeartBeatEvent() : Event("heartbeat"), heartLed(HERTBEAT) {}
         void Blink()
         {
             heartLed.LED_Blink();
         }
-        // Getter 方法获取 LED 引脚
         int getLedPin() const { return _ledPin; }
 
     private:
-        LEDOption heartLed; // 创建 LED 对象
-        int _ledPin;        // 实际使用的 LED 引脚号
+        LEDOption heartLed; // LED option
+        int _ledPin;    // LED pin
     };
 
 } // namespace esp32m
+/*
+enable event
+.pio\libdeps\esp32dev\WebSockets\src\WebSockets.cpp 751 line
+                esp32m::HeartBeatEvent ev;
+                esp32m::EventManager::instance().publish(ev);
+*/
