@@ -1,0 +1,3 @@
+[submodule ".pio/libdeps/esp32dev/MicroOcpp"]
+	path = .pio/libdeps/esp32dev/MicroOcpp
+	url = https://github.com/EasonChen11/MicroOcpp.git
