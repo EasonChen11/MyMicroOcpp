@@ -71,6 +71,14 @@ float getEnergy()
 {
     return energyMeter;
 }
+bool isChargingAllowed()
+{
+    return getTransactionIdTag() > 0 && getChargePointStatus() == ChargePointStatus_Charging;
+}
+float getCurrentPower()
+{
+    return isChargingAllowed() ? 0.003f : 0.f; // increase by 0.003Wh per ms (~ 10.8kWh per h)
+}
 
 void setup()
 {
@@ -132,43 +140,46 @@ void setup()
                 1) != pdPASS)
         {
             Serial.println("Failed to create OLED task");
-            // 处理创建失败的情况
+            // if false create
         }
     }
     /*
      * Integrate OCPP functionality. You can leave out the following part if your EVSE doesn't need it.
      */
+
     setEnergyMeterInput([]()
                         {
-        //take the energy register of the main electricity meter and return the value in watt-hours
-        static ulong lastSampled = millis();
-// static float energyMeter = 0.f; goto global
-if (getTransactionIdTag() > 0)
-    energyMeter += ((float) (millis() - lastSampled)) * 0.003f; //increase by 0.003Wh per ms (~ 10.8kWh per h)
-lastSampled = millis();
-return energyMeter; });
-
+    //take the energy register of the main electricity meter and return the value in watt-hours
+    static ulong lastSampled = millis();
+    if (isChargingAllowed()) 
+    {
+        energyMeter += ((float) (millis() - lastSampled)) * getCurrentPower(); //increase by 0.003Wh per ms (~ 10.8kWh per h)
+    }
+    lastSampled = millis();
+    return energyMeter; });
+    /*setEnergyMeterInput([]()
+                            {
+            //take the energy register of the main electricity meter and return the value in watt-hours
+            static ulong lastSampled = millis();
+    // static float energyMeter = 0.f; goto global
+    if (getTransactionIdTag() > 0)
+        energyMeter += ((float) (millis() - lastSampled)) * 0.003f; //increase by 0.003Wh per ms (~ 10.8kWh per h)
+    lastSampled = millis();
+    return energyMeter; });
+    */
+    setPowerMeterInput([]()
+                       { return getCurrentPower(); });
     addMeterValueInput([]
-                       { return 120; },
-                       "Voltage", "V");
+                       { return 120; }, "Voltage", "V");
     addMeterValueInput([]
-                       { return 10; },
-                       "Current.import",
-                       "A");
+                       {
+                           return isChargingAllowed() ? getCurrentPower() / 120.0f : 0; // I = P / V
+                       },
+                       "Current.Import", "A");
     addMeterValueInput([]
-                       { return 100; },
-                       "Energy.Active.Import.Register", "Wh");
+                       { return 50; }, "Frequency", "Hz");
     addMeterValueInput([]
-                       { return 50; },
-                       "Frequency", "Hz");
-    addMeterValueInput([]
-                       { return 10; },
-                       "Power.Active.Import",
-                       "kW");
-    addMeterValueInput([]
-                       { return 20; },
-                       "Temperature",
-                       "Celsius");
+                       { return 20; }, "Temperature", "Celsius");
 
     setSmartChargingCurrentOutput([](float limit)
                                   {
@@ -183,6 +194,17 @@ return energyMeter; });
     setEvseReadyInput([]()
                       // return true if the EVSE is ready to charge
                       { return evseReady.Is_Ready(); });
+    setOnSendConf("RemoteStopTransaction", [](JsonObject payload) -> void
+                  {
+        endTransaction(nullptr, "Remote"); //end transaction and send StopTransaction
+        if (RFIDstate == RFID_FIRST_TOUCHED_IDLE)
+            RFIDstate = RFID_IDLE;
+        if (!strcmp(payload["status"], "Rejected")) {
+          //the OCPP lib rejected the RemoteStopTransaction command. In this example, the customer
+          //wishes to stop the running transaction in any case and to log this case
+          Serial.println("[main] override rejected RemoteStopTransaction"); //Arduino print function
+      }else
+        Serial.println("[main] Accept RemoteStopTransaction"); });
     //... see MicroOcpp.h for more settings
 }
 
