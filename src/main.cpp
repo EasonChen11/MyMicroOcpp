@@ -16,10 +16,11 @@ ESP8266WiFiMulti WiFiMulti;
 #include "myevent.h"
 #include "LEDOption.h"
 #include "SWITCH.h"
+#include "OLED.h"
 #define STASSID "TCEJ-Home"
 #define STAPSK "22435503"
 
-#define OCPP_BACKEND_URL "ws://192.168.0.166:9000"//"ws://192.168.0.166:8180/steve/websocket/CentralSystemService/" //"" //"ws://echo.websocket.events"
+#define OCPP_BACKEND_URL "ws://192.168.0.166:8180/steve/websocket/CentralSystemService/" //"ws://192.168.0.166:8180/steve/websocket/CentralSystemService/" //"ws://192.168.0.166:9000" //"ws://echo.websocket.events"
 #define OCPP_CHARGE_BOX_ID "CP_1"
 
 //
@@ -31,6 +32,7 @@ ESP8266WiFiMulti WiFiMulti;
 // setups the LED pin
 LEDOption permitsCharge(PermitsCharge);
 SWITCH RFIDTouch(RFID_PIN), connectorPlugged(ConnectorPlugged), evseReady(EvseReady), evReady(EvReady);
+
 enum RFIDState
 {
     RFID_IDLE,
@@ -40,6 +42,21 @@ enum RFIDState
 };
 RFIDState RFIDstate = RFID_IDLE;
 
+OLED oled;
+TaskHandle_t oledTaskHandle = NULL;
+void oledTask(void *pvParameters)
+{
+    OLED *oled = (OLED *)pvParameters;
+    for (;;)
+    {
+        if (ocppPermitsCharge())
+            oled->haveTxDoUpdateDisplay();
+        else
+            oled->notHaveTxDoUpdateDisplay();
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+}
+
 void HeartBeatEvent(esp32m::Event *event)
 { // handle custom event
     if (event->is("heartbeat"))
@@ -47,6 +64,12 @@ void HeartBeatEvent(esp32m::Event *event)
         auto customEvent = (esp32m::HeartBeatEvent *)event;
         customEvent->Blink();
     }
+}
+
+static float energyMeter = 0.f;
+float getEnergy()
+{
+    return energyMeter;
 }
 
 void setup()
@@ -91,6 +114,27 @@ void setup()
 
     mocpp_initialize(OCPP_BACKEND_URL, OCPP_CHARGE_BOX_ID, "My Charging Station", "My company name");
     // call class MOcppMongooseClient
+    if (!oled.begin())
+    {
+        Serial.println(F("[main] SSD1306 allocation failed"));
+    }
+    else
+    {
+        oled.showSplashScreen();
+        Serial.println(F("[main] SSD1306 start"));
+        if (xTaskCreatePinnedToCore(
+                oledTask,
+                "OLED Task",
+                2048, // 增加堆栈大小
+                &oled,
+                1,
+                &oledTaskHandle,
+                1) != pdPASS)
+        {
+            Serial.println("Failed to create OLED task");
+            // 处理创建失败的情况
+        }
+    }
     /*
      * Integrate OCPP functionality. You can leave out the following part if your EVSE doesn't need it.
      */
@@ -98,7 +142,7 @@ void setup()
                         {
         //take the energy register of the main electricity meter and return the value in watt-hours
         static ulong lastSampled = millis();
-static float energyMeter = 0.f;
+// static float energyMeter = 0.f; goto global
 if (getTransactionIdTag() > 0)
     energyMeter += ((float) (millis() - lastSampled)) * 0.003f; //increase by 0.003Wh per ms (~ 10.8kWh per h)
 lastSampled = millis();
@@ -132,13 +176,13 @@ return energyMeter; });
         Serial.printf("[main] Smart Charging allows maximum charge rate: %.0f\n", limit); });
     setConnectorPluggedInput([]()
                              // return true if an EV is plugged to this EVSE
-                             {return true; return connectorPlugged.Is_Ready(); });
+                             { return connectorPlugged.Is_Ready(); });
     setEvReadyInput([]()
                     // return true if the EV is ready to charge
-                    {return true; return evReady.Is_Ready(); });
+                    { return evReady.Is_Ready(); });
     setEvseReadyInput([]()
                       // return true if the EVSE is ready to charge
-                      {return true; return evseReady.Is_Ready(); });
+                      { return evseReady.Is_Ready(); });
     //... see MicroOcpp.h for more settings
 }
 
@@ -152,11 +196,21 @@ void loop()
     /*
      * Energize EV plug if OCPP transaction is up and running
      */
+    ChargePointStatus status = getChargePointStatus();
+    // Serial.printf("[main] status %d\n",status);
+    oled.updateStatusDisplay(status);
     if (ocppPermitsCharge())
     {
         // Serial.println(F("[main] Energize EV plug"));
+        if (status == ChargePointStatus::ChargePointStatus_Charging)
+            permitsCharge.LED_On();
+        else
+            permitsCharge.LED_Off();
+        String idTag = getTransactionIdTag();
+        oled.updateIdTag(idTag);
+        float energy = getEnergy();
+        oled.updateEnergy(energy);
 
-        permitsCharge.LED_On();
         // OCPP set up and transaction running. Energize the EV plug here
     }
     else
@@ -169,7 +223,7 @@ void loop()
     /*
      * Use NFC reader to start and stop transactions
      */
-    if (/* RFID chip detected? */ true)//RFIDTouch.Is_Ready()) // RFID card touched
+    if (/* RFID chip detected? */ RFIDTouch.Is_Ready()) // RFIDTouch.Is_Ready()) // RFID card touched
     {
         String idTag = "ABC"; // e.g. idTag = RFID.readIdTag();
 
