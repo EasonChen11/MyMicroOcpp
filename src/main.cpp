@@ -13,6 +13,7 @@ ESP8266WiFiMulti WiFiMulti;
 #endif
 
 #include <MicroOcpp.h>
+#include <random>
 #include "myevent.h"
 #include "LEDOption.h"
 #include "SWITCH.h"
@@ -23,7 +24,8 @@ ESP8266WiFiMulti WiFiMulti;
 #define OCPP_BACKEND_URL "ws://192.168.0.166:8180/steve/websocket/CentralSystemService/" //"ws://192.168.0.166:8180/steve/websocket/CentralSystemService/" //"ws://192.168.0.166:9000" //"ws://echo.websocket.events"
 #define OCPP_CHARGE_BOX_ID "CP_1"
 
-//
+#define OneSecond 3600000 // ms
+#define MAX_POWER 10800.0 // W
 //  Settings which worked for my SteVe instance:
 //
 // #define OCPP_BACKEND_URL   "ws://192.168.178.100:8180/steve/websocket/CentralSystemService"
@@ -67,6 +69,16 @@ void HeartBeatEvent(esp32m::Event *event)
 }
 
 static float energyMeter = 0.f;
+static float MaxPower = MAX_POWER; // W
+
+// Utility function to generate random floating-point numbers in a specific range
+float randomFloat(float min, float max)
+{
+    std::random_device rd;  // Will be used to obtain a seed for the random number engine
+    std::mt19937 gen(rd()); // Standard mersenne_twister_engine seeded with rd()
+    std::uniform_real_distribution<> dis(min, max);
+    return dis(gen);
+}
 float getEnergy()
 {
     return energyMeter;
@@ -77,7 +89,8 @@ bool isChargingAllowed()
 }
 float getCurrentPower()
 {
-    return isChargingAllowed() ? 0.003f : 0.f; // increase by 0.003Wh per ms (~ 10.8kWh per h)
+    float random_adjustment = randomFloat(-0.1 * MaxPower, 0.1 * MaxPower); // Generates a random float within ±10% of MaxPower
+    return isChargingAllowed() ? MaxPower + random_adjustment : 0.0f;       // 0.003f : 0.f; // increase by 0.003Wh per ms (~ 10.8kWh per h)
 }
 
 void setup()
@@ -133,7 +146,7 @@ void setup()
         if (xTaskCreatePinnedToCore(
                 oledTask,
                 "OLED Task",
-                2048, // 增加堆栈大小
+                2048,
                 &oled,
                 1,
                 &oledTaskHandle,
@@ -153,7 +166,7 @@ void setup()
     static ulong lastSampled = millis();
     if (isChargingAllowed()) 
     {
-        energyMeter += ((float) (millis() - lastSampled)) * getCurrentPower(); //increase by 0.003Wh per ms (~ 10.8kWh per h)
+        energyMeter += ((float) (millis() - lastSampled)) * (getCurrentPower()/OneSecond); //increase by 0.003Wh per ms (~ 10.8kWh per h)
     }
     lastSampled = millis();
     return energyMeter; });
@@ -168,7 +181,9 @@ void setup()
     return energyMeter; });
     */
     setPowerMeterInput([]()
-                       { return getCurrentPower(); });
+                       {
+                        Serial.printf("[main] getCurrentPower: %.0f\n", getCurrentPower());
+                         return getCurrentPower(); });
     addMeterValueInput([]
                        { return 120; }, "Voltage", "V");
     addMeterValueInput([]
@@ -181,10 +196,14 @@ void setup()
     addMeterValueInput([]
                        { return 20; }, "Temperature", "Celsius");
 
-    setSmartChargingCurrentOutput([](float limit)
-                                  {
-        //set the SAE J1772 Control Pilot value here
-        Serial.printf("[main] Smart Charging allows maximum charge rate: %.0f\n", limit); });
+    // setSmartChargingCurrentOutput([](float limit)
+    //                               {
+    //     //set the SAE J1772 Control Pilot value here
+    //     Serial.printf("[main] Smart Charging allows maximum charge rate: %.0f\n", limit); });
+    setSmartChargingPowerOutput([](float limit)
+                                { Serial.printf("[main] Smart Charging allows maximum charge rate: %.0f\n", limit);
+                                MaxPower = limit < 0 ? MAX_POWER : limit; });
+
     setConnectorPluggedInput([]()
                              // return true if an EV is plugged to this EVSE
                              { return connectorPlugged.Is_Ready(); });
@@ -196,21 +215,22 @@ void setup()
                       { return evseReady.Is_Ready(); });
     setOnSendConf("RemoteStopTransaction", [](JsonObject payload) -> void
                   {
-        endTransaction(nullptr, "Remote"); //end transaction and send StopTransaction
-        if (RFIDstate == RFID_FIRST_TOUCHED_IDLE)
-            RFIDstate = RFID_IDLE;
-        if (!strcmp(payload["status"], "Rejected")) {
-          //the OCPP lib rejected the RemoteStopTransaction command. In this example, the customer
-          //wishes to stop the running transaction in any case and to log this case
-          Serial.println("[main] override rejected RemoteStopTransaction"); //Arduino print function
-      }else
-        Serial.println("[main] Accept RemoteStopTransaction"); });
+            endTransaction(nullptr, "Remote"); // end transaction and send StopTransaction
+            if (RFIDstate == RFID_FIRST_TOUCHED_IDLE)
+                RFIDstate = RFID_IDLE;
+            if (!strcmp(payload["status"], "Rejected"))
+            {
+                // the OCPP lib rejected the RemoteStopTransaction command. In this example, the customer
+                // wishes to stop the running transaction in any case and to log this case
+                Serial.println("[main] override rejected RemoteStopTransaction"); // Arduino print function
+            }
+            else
+                Serial.println("[main] Accept RemoteStopTransaction"); });
     //... see MicroOcpp.h for more settings
 }
 
 void loop()
 {
-
     /*
      * Do all OCPP stuff (process WebSocket input, send recorded meter values to Central System, etc.)
      */
@@ -284,8 +304,8 @@ void loop()
                 if (idTag.equals(getTransactionIdTag()))
                 {
                     // card matches -> user can stop Tx
-                    Serial.println(F("[main] End transaction by RFID card"));
                     endTransaction(idTag.c_str());
+                    Serial.println(F("[main] End transaction by RFID card"));
                     if (RFIDstate == RFID_FIRST_TOUCHED_IDLE)
                         RFIDstate = RFID_SECOND_TOUCHED;
                 }
